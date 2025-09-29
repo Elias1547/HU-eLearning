@@ -1,8 +1,8 @@
-import { notFound } from "next/navigation";
-import { getServerSession } from "next-auth/next";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { notFound } from "next/navigation"
+import { getServerSession } from "next-auth/next"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,15 +14,7 @@ import {
   Share2,
   Bookmark,
   MessageSquare,
-  Eye,
-  Volume2,
-  Settings,
-  Maximize,
-  SkipBack,
-  SkipForward,
-  Pause,
-  Play,
-  RotateCcw,
+  Eye, 
   FileText,
   Lightbulb,
   Target,
@@ -34,15 +26,12 @@ import {
   ThumbsUp,
   ThumbsDown,
   Flag,
-  Share,
   Copy,
   ExternalLink,
   BookmarkPlus,
   BookmarkCheck,
   DownloadCloud,
-  Headphones,
   Video,
-  FileVideo,
   CheckSquare,
   Square,
   AlertCircle,
@@ -52,49 +41,22 @@ import {
   TrendingUp,
   Users,
   Timer,
-  Target as TargetIcon,
-  Award as AwardIcon,
-  BarChart3 as BarChart3Icon,
-  Calendar as CalendarIcon,
-  User as UserIcon,
-  Star as StarIcon,
-  ThumbsUp as ThumbsUpIcon,
-  ThumbsDown as ThumbsDownIcon,
-  Flag as FlagIcon,
-  Share as ShareIcon,
-  Copy as CopyIcon,
-  ExternalLink as ExternalLinkIcon,
-  BookmarkPlus as BookmarkPlusIcon,
-  BookmarkCheck as BookmarkCheckIcon,
-  DownloadCloud as DownloadCloudIcon,
-  Headphones as HeadphonesIcon,
-  Video as VideoIcon,
-  FileVideo as FileVideoIcon,
-  CheckSquare as CheckSquareIcon,
-  Square as SquareIcon,
-  AlertCircle as AlertCircleIcon,
-  Info as InfoIcon,
-  HelpCircle as HelpCircleIcon,
-  Zap as ZapIcon,
-  TrendingUp as TrendingUpIcon,
-  Users as UsersIcon,
-  Timer as TimerIcon,
-} from "lucide-react";
-import { dbConnect } from "@/lib/dbConnect";
-import { Course as CourseModel } from "@/models/course";
-import { Video as VideoModel } from "@/models/video";
-import { Student } from "@/models/student";
-import { CourseProgress } from "@/models/course-progress";
-import VideoPlayer from "@/components/video/video-player";
-import type mongoose from "mongoose";
-import { authOptions } from "@/lib/auth";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+} from "lucide-react"
+import { dbConnect } from "@/lib/dbConnect"
+import { Course as CourseModel } from "@/models/course"
+import { Video as VideoModel } from "@/models/video"
+import { Student } from "@/models/student"
+import { CourseProgress } from "@/models/course-progress"
+import AdaptiveVideoPlayer from "@/components/video/adaptive-video-player"
+import type mongoose from "mongoose"
+import { authOptions } from "@/lib/auth"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // --- Types ---
 interface TeacherType {
@@ -169,19 +131,19 @@ async function getVideoAndCourse(
   await dbConnect();
 
   try {
-    const video = await VideoModel.findById(videoId).lean();
+    const video = await (VideoModel as any).findById(videoId).lean();
     if (!video || video.course.toString() !== courseId) {
       return null;
     }
 
-    const course = await CourseModel.findById(courseId)
-      .populate<{ teacher: TeacherType }>("teacher", "name email avatar")
+    const course = await (CourseModel as any).findById(courseId)
+      .populate("teacher", "name email avatar")
       .lean();
     if (!course) {
       return null;
     }
 
-    const videos = await VideoModel.find({ course: courseId })
+    const videos = await (VideoModel as any).find({ course: courseId })
       .sort({ position: 1 })
       .lean();
 
@@ -190,17 +152,17 @@ async function getVideoAndCourse(
       completedVideos: [] as string[],
       percentageCompleted: 0,
       totalVideos: videos.length,
-      currentVideoIndex: videos.findIndex(v => v._id.toString() === videoId)
+      currentVideoIndex: videos.findIndex((v: any) => v._id.toString() === videoId)
     };
 
     if (userId) {
-      const userProgress = await CourseProgress.findOne({
+      const userProgress = await (CourseProgress as any).findOne({
         student: userId,
         course: courseId,
       }).lean();
 
       if (userProgress) {
-        progress.completedVideos = userProgress.completedVideos.map(id => id.toString());
+        progress.completedVideos = userProgress.completedVideos.map((id: any) => id.toString());
         progress.percentageCompleted = userProgress.percentageCompleted;
       }
     }
@@ -273,7 +235,7 @@ async function checkEnrollmentStatus(
   await dbConnect();
 
   try {
-    const student = await Student.findById(userId);
+    const student = await (Student as any).findById(userId);
     return student?.purchasedCourses?.includes(courseId) || false;
   } catch (error) {
     console.error("Error checking enrollment status:", error);
@@ -289,7 +251,7 @@ async function updateProgress(
   await dbConnect();
 
   try {
-    let progress = await CourseProgress.findOne({
+    let progress = await (CourseProgress as any).findOne({
       student: userId,
       course: courseId,
     });
@@ -423,30 +385,19 @@ export default async function LearnPage(
             <div className="space-y-4">
               <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
                 {currentVideo.url ? (
-                  <VideoPlayer
-                    videoUrl={currentVideo.url}
+                  <AdaptiveVideoPlayer
+                    src={currentVideo.url}
                     title={currentVideo.title}
-                    videoId={currentVideo._id}
-                    courseId={courseId}
-                    description={currentVideo.description || ""}
-                    courseVideos={videos.map((v) => ({
-                      id: v._id,
-                      title: v.title,
-                      position: v.position,
-                      isCurrent: v.isCurrent ?? false,
-                    }))}
-                    onProgress={(progress) => {
-                      // Handle progress updates
-                      console.log('Video progress:', progress);
+                    className="w-full h-full"
+                    autoPlay={false}
+                    controls={true}
+                    poster={currentVideo.thumbnail}
+                    onTimeUpdate={(currentTime) => {
+                      // Update video progress
+                      console.log('Video progress:', currentTime)
                     }}
-                    onQualityChange={(quality) => {
-                      console.log('Quality changed to:', quality);
-                    }}
-                    onError={(error) => {
-                      console.error('Video error:', error);
-                    }}
-                    onAnalytics={(analytics) => {
-                      console.log('Video analytics:', analytics);
+                    onDurationChange={(duration) => {
+                      console.log('Video duration:', duration)
                     }}
                   />
                 ) : (

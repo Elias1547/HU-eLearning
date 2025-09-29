@@ -15,7 +15,7 @@ import {
   AlertCircle, CheckCircle, XCircle, RefreshCw, Download, Camera
 } from 'lucide-react'
 import { format } from 'date-fns'
-import VideoPlayer from '@/components/video/video-player'
+import AdaptiveVideoPlayer from '@/components/video/adaptive-video-player'
 import { Slider } from '@/components/ui/slider'
 
 interface StreamData {
@@ -88,14 +88,21 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
   const [error, setError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [moderatedUsers, setModeratedUsers] = useState<Set<string>>(new Set())
+  const [isReconnecting, setIsReconnecting] = useState(false)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const [bufferHealth, setBufferHealth] = useState(100)
+  const [networkBandwidth, setNetworkBandwidth] = useState(0)
   
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const tokenRefreshInterval = useRef<NodeJS.Timeout | null>(null)
   const viewerCountInterval = useRef<NodeJS.Timeout | null>(null)
   const qualityCheckInterval = useRef<NodeJS.Timeout | null>(null)
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null)
+  const connectionHealthInterval = useRef<NodeJS.Timeout | null>(null)
+  const websocketRef = useRef<WebSocket | null>(null)
+  const maxReconnectAttempts = 5
 
-  // Available quality options
+  // Enhanced quality options with bandwidth adaptation
   const qualityOptions: StreamQuality[] = useMemo(() => [
     { label: 'Auto', value: 'auto', bitrate: 0, resolution: 'Auto' },
     { label: '1080p', value: '1080p', bitrate: 2500, resolution: '1920x1080' },
@@ -181,6 +188,133 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
     }
   }, [tokenExpiry, refreshToken])
 
+  // Enhanced connection management
+  const initializeWebSocket = useCallback(() => {
+    if (!streamData?.chatUrl) return
+
+    try {
+      if (websocketRef.current?.readyState === WebSocket.OPEN) {
+        websocketRef.current.close()
+      }
+
+      const ws = new WebSocket(streamData.chatUrl)
+      websocketRef.current = ws
+
+      ws.onopen = () => {
+        console.log('WebSocket connected')
+        setChatConnected(true)
+        setIsReconnecting(false)
+        setReconnectAttempts(0)
+        setError(null)
+        
+        // Send initial connection message
+        ws.send(JSON.stringify({
+          type: 'join',
+          streamId: liveClassId,
+          userId: session?.user?.id,
+          userRole: session?.user?.role
+        }))
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data)
+          
+          switch (message.type) {
+            case 'chat':
+              setChatMessages(prev => [...prev, {
+                id: message.id || Date.now().toString(),
+                user: message.user,
+                message: message.message,
+                timestamp: new Date(message.timestamp),
+                role: message.role || 'student'
+              }])
+              break
+            case 'viewer_count':
+              setViewerCount(message.count)
+              break
+            case 'connection_quality':
+              setConnectionQuality(message.quality)
+              setLiveLatency(message.latency || 0)
+              setBufferHealth(message.bufferHealth || 100)
+              setNetworkBandwidth(message.bandwidth || 0)
+              break
+            case 'error':
+              setError(message.message)
+              break
+            case 'recording_status':
+              setIsRecording(message.recording)
+              break
+          }
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err)
+        }
+      }
+
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason)
+        setChatConnected(false)
+        
+        if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+          setIsReconnecting(true)
+          setReconnectAttempts(prev => prev + 1)
+          
+          // Exponential backoff for reconnection
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+          reconnectTimeout.current = setTimeout(() => {
+            initializeWebSocket()
+          }, delay)
+        } else if (reconnectAttempts >= maxReconnectAttempts) {
+          setError('Unable to connect to chat. Please refresh the page.')
+        }
+      }
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setError('Chat connection error')
+      }
+
+    } catch (err) {
+      console.error('Failed to initialize WebSocket:', err)
+      setError('Failed to connect to chat')
+    }
+  }, [streamData?.chatUrl, liveClassId, session?.user, reconnectAttempts])
+
+  const monitorConnectionHealth = useCallback(() => {
+    if (connectionHealthInterval.current) {
+      clearInterval(connectionHealthInterval.current)
+    }
+
+    connectionHealthInterval.current = setInterval(async () => {
+      if (!streamData?.token || !streamData?.streamId) return
+
+      try {
+        const response = await fetch(`/api/live-classes/${liveClassId}/health`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${streamData.token}`
+          },
+          body: JSON.stringify({
+            streamId: streamData.streamId,
+            quality: selectedQuality,
+            bandwidth: networkBandwidth,
+            bufferHealth: bufferHealth
+          })
+        })
+
+        if (response.ok) {
+          const healthData = await response.json()
+          setConnectionQuality(healthData.quality || 'good')
+          setLiveLatency(healthData.latency || 0)
+          setViewerCount(healthData.viewerCount || 0)
+        }
+      } catch (err) {
+        console.warn('Connection health check failed:', err)
+      }
+    }, 10000) // Check every 10 seconds
+  }, [streamData, liveClassId, selectedQuality, networkBandwidth, bufferHealth])
+
   const fetchStreamData = useCallback(async () => {
     try {
       setLoading(true)
@@ -195,49 +329,47 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
         setStreamData(data)
         
         // Calculate token expiry time
-        const expiryTime = new Date(data.expiresAt).getTime()
-        setTokenExpiry(expiryTime)
-        
-        // Add connection status check
-        setTimeout(() => {
-          setChatConnected(true)
-          // Add a welcome message
-          setChatMessages([{
-            id: '1',
-            user: 'System',
-            message: `Welcome to ${data.liveClass.title}! The live class is now starting.`,
-            timestamp: new Date(),
-            role: 'admin',
-            isHighlighted: true
-          }])
-        }, 2000)
+        if (data.token) {
+          try {
+            const tokenPayload = JSON.parse(atob(data.token.split('.')[1]))
+            setTokenExpiry(tokenPayload.exp * 1000)
+          } catch (e) {
+            console.warn('Unable to parse token expiry:', e)
+          }
+        }
 
-        // Start viewer count simulation
-        startViewerCountSimulation()
-        
-        // Start quality monitoring
-        startQualityMonitoring()
+        console.log('Stream data fetched successfully')
       } else {
-        const error = await response.json()
-        setError(error.error || "Failed to load stream")
-        toast({
-          title: "Error",
-          description: error.error || "Failed to load stream",
-          variant: "destructive"
-        })
+        const errorData = await response.json()
+        console.error('Failed to fetch stream data:', errorData)
+        setError(errorData.message || 'Failed to load stream')
       }
-    } catch (error) {
-      console.error('Error fetching stream data:', error)
-      setError("Failed to connect to stream. Please check your internet connection.")
-      toast({
-        title: "Connection Error",
-        description: "Failed to connect to stream. Please check your internet connection.",
-        variant: "destructive"
-      })
+    } catch (err) {
+      console.error('Error fetching stream data:', err)
+      setError('Network error. Please check your connection.')
     } finally {
       setLoading(false)
     }
   }, [liveClassId])
+
+  const handleReconnect = useCallback(async () => {
+    setIsReconnecting(true)
+    setReconnectAttempts(0)
+    
+    try {
+      // Refresh stream data first
+      await fetchStreamData()
+      
+      // Reinitialize WebSocket
+      setTimeout(() => {
+        initializeWebSocket()
+      }, 1000)
+      
+    } catch (err) {
+      console.error('Reconnection failed:', err)
+      setError('Reconnection failed. Please refresh the page.')
+    }
+  }, [fetchStreamData, initializeWebSocket])
 
   const startViewerCountSimulation = () => {
     if (viewerCountInterval.current) {
@@ -560,16 +692,13 @@ export default function LiveStreamViewer({ liveClassId }: LiveStreamViewerProps)
         <div className={`${showChat ? 'lg:col-span-3' : 'col-span-1'} bg-black flex items-center justify-center relative`}>
           {streamData.liveClass.isLive ? (
             <div className="w-full h-full">
-              <VideoPlayer
-                videoId={streamData.streamId}
-                courseId="live"
-                videoUrl={streamData.hlsUrl || streamData.playerUrl}
+              <AdaptiveVideoPlayer
+                src={streamData.hlsUrl || streamData.playerUrl}
                 title={streamData.liveClass.title}
-                description={streamData.liveClass.description || ""}
-                courseVideos={[]}
-                isLive={true}
-                liveUrl={streamData.hlsUrl}
-                poster="/public/edulearn-logo.png"
+                poster="/edulearn-logo.png"
+                autoPlay={true}
+                controls={true}
+                className="w-full h-full"
               />
             </div>
           ) : (

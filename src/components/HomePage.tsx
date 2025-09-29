@@ -89,44 +89,48 @@ export default function Home() {
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="py-20 bg-gradient-to-b from-background to-muted">
-          <div className="container mx-auto px-4 flex flex-col items-center justify-center gap-8 min-h-[70vh]">
+        <section className="relative py-20 bg-gradient-to-br from-background via-background/95 to-primary/5 dark:from-background dark:via-background/90 dark:to-primary/10">
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.02] dark:opacity-[0.03]"></div>
+          <div className="relative container mx-auto px-4 flex flex-col items-center justify-center gap-8 min-h-[70vh]">
             <ScaleIn
               delay={0.2}
               className="flex-1 flex justify-center items-center"
             >
-              <Image
-                src="/edulearn-logo.png"
-                alt="Students learning online"
-                width={60}
-                height={40}
-                className="rounded-lg shadow-lg"
-                priority
-              />
+              <div className="relative group">
+                <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-lg group-hover:blur-xl transition-all duration-300"></div>
+                <Image
+                  src="/edulearn-logo.png"
+                  alt="EduLearn Platform"
+                  width={80}
+                  height={60}
+                  className="relative rounded-lg shadow-xl drop-shadow-2xl transition-transform group-hover:scale-105"
+                  priority
+                />
+              </div>
             </ScaleIn>
             <div className="flex-1 space-y-6 text-center flex flex-col justify-center items-center">
               <TextReveal
                 text="Learn Without Limits"
                 element="h1"
-                className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
+                className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text"
               />
               <FadeIn delay={0.3}>
-                <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                  Start, switch, or advance your career with thousands of
-                  courses from expert instructors. Learn at your own pace,
-                  anytime, anywhere.
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                  Transform your career with thousands of expertly crafted courses. 
+                  Learn at your own pace with interactive content, live sessions, and 
+                  personalized learning paths tailored to your goals.
                 </p>
               </FadeIn>
               <FadeIn delay={0.5}>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/courses">
-                    <Button size="lg" className="gap-2">
-                      Browse Courses <ArrowRight className="h-4 w-4" />
+                    <Button size="lg" className="gap-2 px-8 py-3 text-base font-medium hover:shadow-lg transition-all duration-200">
+                      Explore Courses <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
                   <Link href="/role">
-                    <Button size="lg" variant="outline">
-                      Join for Free
+                    <Button size="lg" variant="outline" className="px-8 py-3 text-base font-medium hover:bg-primary/5 hover:border-primary/30">
+                      Start Free Trial
                     </Button>
                   </Link>
                 </div>
@@ -135,69 +139,97 @@ export default function Home() {
           </div>
         </section>
         {/* Featured Categories */}
-        <section className="py-16">
+        <section className="py-20 bg-muted/30 dark:bg-muted/10">
           <div className="container mx-auto px-4">
             <FadeIn>
-              <h2 className="text-3xl font-bold text-center mb-12">
-                Popular Categories
-              </h2>
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Popular Categories
+                </h2>
+                <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                  Discover courses across diverse fields and master skills that matter in today's world
+                </p>
+              </div>
             </FadeIn>
-            <StaggerChildren className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:shadow-md transition-shadow">
-                <BookOpen className="h-10 w-10 mb-4 text-primary" />
-                <h3 className="font-medium">Web Development</h3>
+            <StaggerChildren className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
+                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
+                  <BookOpen className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Web Development</h3>
+                <p className="text-sm text-muted-foreground">Build modern web applications</p>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:shadow-md transition-shadow">
-                <Users className="h-10 w-10 mb-4 text-primary" />
-                <h3 className="font-medium">Business</h3>
+              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
+                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
+                  <Users className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Business</h3>
+                <p className="text-sm text-muted-foreground">Master business strategies</p>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:shadow-md transition-shadow">
-                <Award className="h-10 w-10 mb-4 text-primary" />
-                <h3 className="font-medium">Design</h3>
+              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
+                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
+                  <Award className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Design</h3>
+                <p className="text-sm text-muted-foreground">Create stunning visuals</p>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:shadow-md transition-shadow">
-                <Globe className="h-10 w-10 mb-4 text-primary" />
-                <h3 className="font-medium">Marketing</h3>
+              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
+                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
+                  <Globe className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Marketing</h3>
+                <p className="text-sm text-muted-foreground">Grow your audience</p>
               </div>
             </StaggerChildren>
           </div>
         </section>
         {/* Why Choose Us */}
-        <section className="py-16 bg-muted">
+        <section className="py-20">
           <div className="container mx-auto px-4">
             <FadeIn>
-              <h2 className="text-3xl font-bold text-center mb-12">
-                Why Choose EduLearn
-              </h2>
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Why Choose EduLearn?
+                </h2>
+                <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                  We provide everything you need to succeed in your learning journey
+                </p>
+              </div>
             </FadeIn>
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <SlideIn direction="up" delay={0.1}>
-                <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card">
-                  <CheckCircle className="h-12 w-12 mb-4 text-primary" />
-                  <h3 className="text-xl font-bold mb-2">Quality Content</h3>
-                  <p className="text-muted-foreground">
+                <div className="group flex flex-col items-center text-center p-8 rounded-xl bg-card border hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+                  <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/20 mb-6">
+                    <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">Quality Content</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     Expertly crafted courses designed to help you master new
-                    skills quickly and effectively.
+                    skills quickly and effectively with hands-on projects.
                   </p>
                 </div>
               </SlideIn>
               <SlideIn direction="up" delay={0.2}>
-                <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card">
-                  <Users className="h-12 w-12 mb-4 text-primary" />
-                  <h3 className="text-xl font-bold mb-2">Expert Instructors</h3>
-                  <p className="text-muted-foreground">
+                <div className="group flex flex-col items-center text-center p-8 rounded-xl bg-card border hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+                  <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/20 mb-6">
+                    <Users className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">Expert Instructors</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     Learn from industry professionals with years of experience
-                    in their respective fields.
+                    and proven track records in their respective fields.
                   </p>
                 </div>
               </SlideIn>
               <SlideIn direction="up" delay={0.3}>
-                <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card">
-                  <Clock className="h-12 w-12 mb-4 text-primary" />
-                  <h3 className="text-xl font-bold mb-2">Flexible Learning</h3>
-                  <p className="text-muted-foreground">
+                <div className="group flex flex-col items-center text-center p-8 rounded-xl bg-card border hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+                  <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/20 mb-6">
+                    <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">Flexible Learning</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     Study at your own pace, on your own schedule, from anywhere
-                    in the world.
+                    in the world with lifetime access to courses.
                   </p>
                 </div>
               </SlideIn>

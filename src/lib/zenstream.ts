@@ -8,6 +8,7 @@ export interface StreamCredentials {
   rtmpUrl?: string
   hlsUrl?: string
   webRtcUrl?: string
+  dashUrl?: string
 }
 
 export interface JWTPayload {
@@ -18,6 +19,7 @@ export interface JWTPayload {
   sessionId: string
   deviceId?: string
   ipAddress?: string
+  userAgent?: string
   iat?: number
   exp?: number
   nbf?: number
@@ -34,6 +36,12 @@ export interface StreamAnalytics {
   errors: number
   startedAt: Date
   endedAt?: Date
+  bandwidth: {
+    incoming: number
+    outgoing: number
+  }
+  regions: Record<string, number>
+  devices: Record<string, number>
 }
 
 export interface StreamQuality {
@@ -42,6 +50,7 @@ export interface StreamQuality {
   bitrate: number
   resolution: string
   framerate: number
+  codec: string
 }
 
 export interface StreamConfig {
@@ -52,6 +61,31 @@ export interface StreamConfig {
   adaptiveBitrate: boolean
   lowLatency: boolean
   backupStream: boolean
+  geoBlocking?: string[]
+  contentFiltering?: boolean
+  moderationEnabled?: boolean
+  transcoding?: {
+    enabled: boolean
+    qualities: string[]
+    watermark?: {
+      enabled: boolean
+      text?: string
+      image?: string
+      position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+    }
+  }
+}
+
+export interface ConnectionHealth {
+  streamId: string
+  status: 'excellent' | 'good' | 'poor' | 'critical'
+  latency: number
+  bandwidth: number
+  packetLoss: number
+  jitter: number
+  bufferHealth: number
+  qualityScore: number
+  lastUpdated: Date
 }
 
 export class ZenStreamService {
@@ -59,8 +93,16 @@ export class ZenStreamService {
   private analytics: Map<string, StreamAnalytics> = new Map()
   private rateLimitCache: Map<string, { count: number; resetTime: number }> = new Map()
   private activeSessions: Map<string, Set<string>> = new Map()
+  private connectionHealth: Map<string, ConnectionHealth> = new Map()
+  private retryAttempts: Map<string, number> = new Map()
+  private circuitBreaker: Map<string, { failures: number; lastFailure: number; state: 'closed' | 'open' | 'half-open' }> = new Map()
 
-  private constructor() {}
+  private constructor() {
+    // Cleanup old entries every hour
+    setInterval(() => {
+      this.cleanup()
+    }, 3600000)
+  }
 
   static getInstance(): ZenStreamService {
     if (!ZenStreamService.instance) {
@@ -69,27 +111,67 @@ export class ZenStreamService {
     return ZenStreamService.instance
   }
 
-  generateStreamCredentials(config?: Partial<StreamConfig>): StreamCredentials {
+  private cleanup(): void {
+    const now = Date.now()
+    const oneHour = 3600000
+
+    // Cleanup rate limit cache
+    for (const [key, data] of this.rateLimitCache.entries()) {
+      if (now > data.resetTime) {
+        this.rateLimitCache.delete(key)
+      }
+    }
+
+    // Cleanup circuit breaker
+    for (const [key, breaker] of this.circuitBreaker.entries()) {
+      if (now - breaker.lastFailure > oneHour) {
+        this.circuitBreaker.delete(key)
+      }
+    }
+  }
+
+  async generateStreamCredentials(
+    userId?: string, 
+    config?: Partial<StreamConfig>
+  ): Promise<StreamCredentials> {
     const timestamp = Date.now()
-    const randomId = crypto.randomBytes(12).toString('hex')
+    const randomId = crypto.randomBytes(16).toString('hex')
     const streamId = `${process.env.ZENSTREAM_STREAM_ID || 'edulearn'}-${timestamp}-${randomId}`
     
-    // Generate cryptographically secure stream key
-    const streamKey = crypto.randomBytes(32).toString('base64url')
+    // Generate cryptographically secure credentials
+    const streamKey = this.generateSecureKey(48)
+    const chatSecret = this.generateSecureKey(64)
     
-    // Generate chat secret with higher entropy
-    const chatSecret = crypto.randomBytes(64).toString('base64url')
-    
+    const baseUrl = process.env.ZENSTREAM_BASE_URL || 'https://stream.edulearn.com'
+    const rtmpUrl = `${process.env.ZENSTREAM_RTMP_URL || 'rtmp://ingest.edulearn.com/live'}/${streamKey}`
+    const hlsUrl = `${baseUrl}/hls/${streamId}/playlist.m3u8`
+    const webRtcUrl = `${process.env.ZENSTREAM_WEBRTC_URL || 'wss://webrtc.edulearn.com'}/${streamId}`
+    const dashUrl = `${baseUrl}/dash/${streamId}/manifest.mpd`
+
     const credentials: StreamCredentials = {
       streamId,
       streamKey,
       chatSecret,
-      rtmpUrl: `${process.env.ZENSTREAM_RTMP_URL || 'rtmp://localhost/live'}/${streamKey}`,
-      hlsUrl: `${process.env.ZENSTREAM_HLS_URL || 'https://stream.example.com'}/${streamId}/playlist.m3u8`,
-      webRtcUrl: `${process.env.ZENSTREAM_WEBRTC_URL || 'wss://stream.example.com'}/${streamId}`
+      rtmpUrl,
+      hlsUrl,
+      webRtcUrl,
+      dashUrl
     }
 
-    // Initialize analytics for this stream
+    // Initialize analytics
+    await this.initializeStreamAnalytics(streamId, config)
+    
+    // Initialize connection health monitoring
+    this.initializeConnectionHealth(streamId)
+
+    return credentials
+  }
+
+  private generateSecureKey(length: number): string {
+    return crypto.randomBytes(length).toString('base64url')
+  }
+
+  private async initializeStreamAnalytics(streamId: string, config?: Partial<StreamConfig>): Promise<void> {
     this.analytics.set(streamId, {
       streamId,
       viewerCount: 0,
@@ -99,57 +181,59 @@ export class ZenStreamService {
       qualitySwitches: 0,
       bufferingEvents: 0,
       errors: 0,
-      startedAt: new Date()
+      startedAt: new Date(),
+      bandwidth: {
+        incoming: 0,
+        outgoing: 0
+      },
+      regions: {},
+      devices: {}
     })
-
-    return credentials
   }
 
-  generateStreamUrls(streamId: string, token: string) {
-    const baseUrl = process.env.NEXT_PUBLIC_ZENSTREAM_BASE_URL || 'https://stream.example.com'
-    
-    return {
-      playerUrl: `${baseUrl}/player?liveId=${streamId}&token=${token}`,
-      chatUrl: `${baseUrl}/chat?liveId=${streamId}&token=${token}`,
-      serverUrl: process.env.ZENSTREAM_SERVER_URL,
-      webRtcUrl: `${baseUrl}/webrtc?liveId=${streamId}&token=${token}`,
-      recordingUrl: `${baseUrl}/recording?liveId=${streamId}&token=${token}`
-    }
+  private initializeConnectionHealth(streamId: string): void {
+    this.connectionHealth.set(streamId, {
+      streamId,
+      status: 'good',
+      latency: 0,
+      bandwidth: 0,
+      packetLoss: 0,
+      jitter: 0,
+      bufferHealth: 100,
+      qualityScore: 80,
+      lastUpdated: new Date()
+    })
   }
 
-  generateJWTToken(
+  async generateJWT(
     streamId: string, 
     userId: string, 
     role: 'teacher' | 'student' | 'admin',
+    permissions: string[] = [],
     options?: {
-      sessionId?: string
+      expiresIn?: string
       deviceId?: string
       ipAddress?: string
-      customPermissions?: string[]
-      expiresIn?: number
+      userAgent?: string
     }
-  ): string {
-    if (!process.env.ZENSTREAM_CHAT_SECRET) {
-      throw new Error('ZENSTREAM_CHAT_SECRET environment variable is not set')
+  ): Promise<string> {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required')
     }
 
-    // Rate limiting check
-    const rateLimitKey = `${userId}:${streamId}`
+    // Check rate limiting
+    const rateLimitKey = `${userId}-${streamId}`
     if (!this.checkRateLimit(rateLimitKey)) {
-      throw new Error('Rate limit exceeded. Please wait before requesting another token.')
+      throw new Error('Rate limit exceeded. Please try again later.')
     }
 
-    // Define permissions based on role with enhanced security
-    const basePermissions = role === 'teacher' 
-      ? ['stream', 'chat', 'moderate', 'control', 'record', 'analytics'] 
-      : role === 'admin'
-      ? ['stream', 'chat', 'moderate', 'control', 'record', 'analytics', 'admin']
-      : ['view', 'chat']
+    // Check circuit breaker
+    if (!this.checkCircuitBreaker(streamId)) {
+      throw new Error('Service temporarily unavailable. Please try again later.')
+    }
 
-    const permissions = options?.customPermissions || basePermissions
-
-    const sessionId = options?.sessionId || crypto.randomBytes(16).toString('hex')
-    const expiresIn = options?.expiresIn || (4 * 60 * 60) // 4 hours default
+    const sessionId = crypto.randomUUID()
+    const now = Math.floor(Date.now() / 1000)
 
     const payload: JWTPayload = {
       streamId,
@@ -159,157 +243,326 @@ export class ZenStreamService {
       sessionId,
       deviceId: options?.deviceId,
       ipAddress: options?.ipAddress,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + expiresIn,
-      nbf: Math.floor(Date.now() / 1000) // Not valid before now
-    }
-
-    const jwtOptions: jwt.SignOptions = {
-      algorithm: 'HS256',
-      issuer: 'edulearn-lms',
-      audience: 'zenstream-service',
-      jwtid: sessionId, // Unique JWT ID
-      subject: userId
+      userAgent: options?.userAgent,
+      iat: now,
+      nbf: now,
+      exp: now + this.getTokenExpiration(options?.expiresIn || '1h')
     }
 
     try {
-      const token = jwt.sign(payload, process.env.ZENSTREAM_CHAT_SECRET, jwtOptions)
-      
+      const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        algorithm: 'HS256',
+        issuer: 'edulearn-streaming',
+        audience: 'edulearn-client'
+      })
+
       // Track active session
-      this.trackActiveSession(streamId, sessionId, userId, role)
-      
+      if (!this.activeSessions.has(streamId)) {
+        this.activeSessions.set(streamId, new Set())
+      }
+      this.activeSessions.get(streamId)!.add(sessionId)
+
       return token
     } catch (error) {
-      console.error('Error generating JWT token:', error)
-      throw new Error('Failed to generate JWT token')
+      this.recordFailure(streamId)
+      throw new Error('Failed to generate authentication token')
     }
   }
 
-  verifyJWTToken(token: string, options?: {
-    checkExpiry?: boolean
-    validatePermissions?: string[]
-  }): JWTPayload | null {
-    if (!process.env.ZENSTREAM_CHAT_SECRET) {
-      throw new Error('ZENSTREAM_CHAT_SECRET environment variable is not set')
+  private checkRateLimit(key: string, limit: number = 10, windowMs: number = 60000): boolean {
+    const now = Date.now()
+    const entry = this.rateLimitCache.get(key)
+
+    if (!entry || now > entry.resetTime) {
+      this.rateLimitCache.set(key, {
+        count: 1,
+        resetTime: now + windowMs
+      })
+      return true
+    }
+
+    if (entry.count >= limit) {
+      return false
+    }
+
+    entry.count++
+    return true
+  }
+
+  private checkCircuitBreaker(streamId: string): boolean {
+    const breaker = this.circuitBreaker.get(streamId)
+    
+    if (!breaker) {
+      return true
+    }
+
+    const now = Date.now()
+    const timeout = 60000 // 1 minute
+
+    switch (breaker.state) {
+      case 'closed':
+        return true
+      case 'open':
+        if (now - breaker.lastFailure > timeout) {
+          breaker.state = 'half-open'
+          return true
+        }
+        return false
+      case 'half-open':
+        return true
+      default:
+        return true
+    }
+  }
+
+  private recordFailure(streamId: string): void {
+    const breaker = this.circuitBreaker.get(streamId) || {
+      failures: 0,
+      lastFailure: 0,
+      state: 'closed' as const
+    }
+
+    breaker.failures++
+    breaker.lastFailure = Date.now()
+
+    if (breaker.failures >= 5) {
+      breaker.state = 'open'
+    }
+
+    this.circuitBreaker.set(streamId, breaker)
+  }
+
+  private getTokenExpiration(expiresIn: string): number {
+    const unit = expiresIn.slice(-1)
+    const value = parseInt(expiresIn.slice(0, -1))
+
+    switch (unit) {
+      case 's': return value
+      case 'm': return value * 60
+      case 'h': return value * 3600
+      case 'd': return value * 86400
+      default: return 3600 // 1 hour default
+    }
+  }
+
+  async validateJWT(token: string): Promise<JWTPayload | null> {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required')
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.ZENSTREAM_CHAT_SECRET, {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
         algorithms: ['HS256'],
-        issuer: 'edulearn-lms',
-        audience: 'zenstream-service'
+        issuer: 'edulearn-streaming',
+        audience: 'edulearn-client'
       }) as JWTPayload
 
-      // Check if token is expired
-      if (options?.checkExpiry !== false) {
-        const currentTime = Math.floor(Date.now() / 1000)
-        if (decoded.exp && decoded.exp < currentTime) {
-          return null
-        }
-      }
-
-      // Validate permissions if required
-      if (options?.validatePermissions) {
-        const hasPermission = options.validatePermissions.some(permission => 
-          decoded.permissions.includes(permission)
-        )
-        if (!hasPermission) {
-          return null
-        }
+      // Check if session is still active
+      const streamSessions = this.activeSessions.get(decoded.streamId)
+      if (!streamSessions?.has(decoded.sessionId)) {
+        return null
       }
 
       return decoded
     } catch (error) {
-      console.error('Error verifying JWT token:', error)
+      console.error('JWT validation failed:', error)
       return null
     }
   }
 
-  refreshJWTToken(token: string, options?: {
-    extendBy?: number
-    validateSession?: boolean
-  }): string | null {
-    const decoded = this.verifyJWTToken(token, { checkExpiry: false })
-    
-    if (!decoded) {
-      return null
-    }
+  async updateConnectionHealth(
+    streamId: string, 
+    metrics: Partial<Omit<ConnectionHealth, 'streamId' | 'lastUpdated'>>
+  ): Promise<void> {
+    const health = this.connectionHealth.get(streamId)
+    if (!health) return
 
-    // Validate session if required
-    if (options?.validateSession !== false) {
-      if (!this.isSessionActive(decoded.streamId, decoded.sessionId)) {
-        return null
-      }
-    }
+    Object.assign(health, metrics, { lastUpdated: new Date() })
 
-    // Check if token is close to expiration (within 30 minutes)
-    const currentTime = Math.floor(Date.now() / 1000)
-    const timeUntilExpiry = (decoded.exp || 0) - currentTime
-    const extendBy = options?.extendBy || (4 * 60 * 60) // 4 hours default
-    
-    if (timeUntilExpiry > 30 * 60) {
-      // Token still has more than 30 minutes, no need to refresh
-      return token
-    }
+    // Calculate overall status
+    health.status = this.calculateConnectionStatus(health)
 
-    // Generate new token with extended expiration
-    return this.generateJWTToken(decoded.streamId, decoded.userId, decoded.role, {
-      sessionId: decoded.sessionId,
-      deviceId: decoded.deviceId,
-      ipAddress: decoded.ipAddress,
-      expiresIn: extendBy
-    })
+    this.connectionHealth.set(streamId, health)
   }
 
-  getTokenExpiryTime(token: string): Date | null {
-    const decoded = this.verifyJWTToken(token, { checkExpiry: false })
-    if (!decoded || !decoded.exp) {
-      return null
-    }
-    
-    return new Date(decoded.exp * 1000)
+  private calculateConnectionStatus(health: ConnectionHealth): 'excellent' | 'good' | 'poor' | 'critical' {
+    let score = 100
+
+    // Deduct points based on metrics
+    if (health.latency > 200) score -= 20
+    else if (health.latency > 100) score -= 10
+
+    if (health.packetLoss > 5) score -= 30
+    else if (health.packetLoss > 2) score -= 15
+
+    if (health.jitter > 50) score -= 20
+    else if (health.jitter > 20) score -= 10
+
+    if (health.bufferHealth < 50) score -= 25
+    else if (health.bufferHealth < 75) score -= 10
+
+    if (score >= 80) return 'excellent'
+    if (score >= 60) return 'good'
+    if (score >= 40) return 'poor'
+    return 'critical'
   }
 
-  isTokenExpired(token: string): boolean {
-    const decoded = this.verifyJWTToken(token, { checkExpiry: false })
-    if (!decoded || !decoded.exp) {
-      return true
-    }
-    
-    const currentTime = Math.floor(Date.now() / 1000)
-    return decoded.exp < currentTime
-  }
+  async updateStreamAnalytics(
+    streamId: string, 
+    updates: Partial<StreamAnalytics>
+  ): Promise<void> {
+    const analytics = this.analytics.get(streamId)
+    if (!analytics) return
 
-  getTokenTimeRemaining(token: string): number {
-    const decoded = this.verifyJWTToken(token, { checkExpiry: false })
-    if (!decoded || !decoded.exp) {
-      return 0
-    }
-    
-    const currentTime = Math.floor(Date.now() / 1000)
-    return Math.max(0, decoded.exp - currentTime)
-  }
+    // Apply updates
+    Object.assign(analytics, updates)
 
-  revokeToken(token: string): boolean {
-    const decoded = this.verifyJWTToken(token, { checkExpiry: false })
-    if (!decoded) {
-      return false
+    // Update peak viewers if current is higher
+    if (updates.viewerCount && updates.viewerCount > analytics.peakViewers) {
+      analytics.peakViewers = updates.viewerCount
     }
 
-    // Remove from active sessions
-    this.removeActiveSession(decoded.streamId, decoded.sessionId)
-    return true
+    this.analytics.set(streamId, analytics)
   }
 
   getStreamAnalytics(streamId: string): StreamAnalytics | null {
     return this.analytics.get(streamId) || null
   }
 
-  updateStreamAnalytics(streamId: string, updates: Partial<StreamAnalytics>): void {
+  getConnectionHealth(streamId: string): ConnectionHealth | null {
+    return this.connectionHealth.get(streamId) || null
+  }
+
+  async endStream(streamId: string): Promise<void> {
+    // End analytics tracking
     const analytics = this.analytics.get(streamId)
     if (analytics) {
-      Object.assign(analytics, updates)
+      analytics.endedAt = new Date()
       this.analytics.set(streamId, analytics)
+    }
+
+    // Clean up active sessions
+    this.activeSessions.delete(streamId)
+
+    // Clean up connection health
+    this.connectionHealth.delete(streamId)
+
+    // Reset retry attempts
+    this.retryAttempts.delete(streamId)
+  }
+
+  async getDefaultStreamQualities(): Promise<StreamQuality[]> {
+    return [
+      {
+        label: '360p',
+        value: '360p',
+        bitrate: 800000,
+        resolution: '640x360',
+        framerate: 30,
+        codec: 'h264'
+      },
+      {
+        label: '480p',
+        value: '480p',
+        bitrate: 1200000,
+        resolution: '854x480',
+        framerate: 30,
+        codec: 'h264'
+      },
+      {
+        label: '720p',
+        value: '720p',
+        bitrate: 2500000,
+        resolution: '1280x720',
+        framerate: 30,
+        codec: 'h264'
+      },
+      {
+        label: '1080p',
+        value: '1080p',
+        bitrate: 5000000,
+        resolution: '1920x1080',
+        framerate: 30,
+        codec: 'h264'
+      }
+    ]
+  }
+
+  async retryOperation<T>(
+    streamId: string,
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: Error
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await operation()
+        
+        // Reset retry count on success
+        this.retryAttempts.delete(streamId)
+        
+        return result
+      } catch (error) {
+        lastError = error as Error
+        
+        if (attempt === maxRetries) {
+          this.recordFailure(streamId)
+          break
+        }
+
+        // Exponential backoff
+        const backoffDelay = delay * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, backoffDelay))
+      }
+    }
+
+    throw lastError!
+  }
+
+  // Health check method
+  async healthCheck(): Promise<{
+    status: 'healthy' | 'degraded' | 'unhealthy'
+    activeStreams: number
+    activeSessions: number
+    circuitBreakers: number
+    uptime: number
+  }> {
+    const startTime = process.uptime() * 1000
+    const activeStreams = this.analytics.size
+    const activeSessions = Array.from(this.activeSessions.values())
+      .reduce((total, sessions) => total + sessions.size, 0)
+    const openCircuitBreakers = Array.from(this.circuitBreaker.values())
+      .filter(cb => cb.state === 'open').length
+
+    let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy'
+    
+    if (openCircuitBreakers > activeStreams * 0.5) {
+      status = 'unhealthy'
+    } else if (openCircuitBreakers > 0) {
+      status = 'degraded'
+    }
+
+    return {
+      status,
+      activeStreams,
+      activeSessions,
+      circuitBreakers: openCircuitBreakers,
+      uptime: startTime
+    }
+  }
+
+  // Additional utility methods
+  generateStreamUrls(streamId: string, token: string) {
+    const baseUrl = process.env.NEXT_PUBLIC_ZENSTREAM_BASE_URL || 'https://stream.edulearn.com'
+    
+    return {
+      playerUrl: `${baseUrl}/player?liveId=${streamId}&token=${token}`,
+      chatUrl: `${baseUrl}/chat?liveId=${streamId}&token=${token}`,
+      webRtcUrl: `${baseUrl}/webrtc?liveId=${streamId}&token=${token}`,
+      recordingUrl: `${baseUrl}/recording?liveId=${streamId}&token=${token}`,
+      analyticsUrl: `${baseUrl}/analytics?liveId=${streamId}&token=${token}`
     }
   }
 
@@ -332,92 +585,36 @@ export class ZenStreamService {
     }
   }
 
-  private checkRateLimit(key: string, limit: number = 10, windowMs: number = 60000): boolean {
-    const now = Date.now()
-    const record = this.rateLimitCache.get(key)
-    
-    if (!record || now > record.resetTime) {
-      this.rateLimitCache.set(key, { count: 1, resetTime: now + windowMs })
-      return true
-    }
-    
-    if (record.count >= limit) {
-      return false
-    }
-    
-    record.count++
-    this.rateLimitCache.set(key, record)
-    return true
-  }
-
-  private trackActiveSession(streamId: string, sessionId: string, userId: string, role: string): void {
-    if (!this.activeSessions.has(streamId)) {
-      this.activeSessions.set(streamId, new Set())
-    }
-    this.activeSessions.get(streamId)?.add(sessionId)
-  }
-
-  private removeActiveSession(streamId: string, sessionId: string): void {
-    this.activeSessions.get(streamId)?.delete(sessionId)
-  }
-
-  private isSessionActive(streamId: string, sessionId: string): boolean {
-    return this.activeSessions.get(streamId)?.has(sessionId) || false
-  }
-
   getActiveSessionsCount(streamId: string): number {
     return this.activeSessions.get(streamId)?.size || 0
   }
 
-  cleanupExpiredSessions(): void {
-    const now = Date.now()
-    
-    // Clean up rate limit cache
-    for (const [key, record] of this.rateLimitCache.entries()) {
-      if (now > record.resetTime) {
-        this.rateLimitCache.delete(key)
-      }
-    }
+  // Static methods for convenience
+  static async createStream(userId?: string, config?: Partial<StreamConfig>): Promise<StreamCredentials> {
+    return ZenStreamService.getInstance().generateStreamCredentials(userId, config)
   }
 
-  // Utility functions for backward compatibility
-  static generateStreamCredentials(): StreamCredentials {
-    return ZenStreamService.getInstance().generateStreamCredentials()
+  static async generateToken(
+    streamId: string,
+    userId: string,
+    role: 'teacher' | 'student' | 'admin',
+    permissions: string[] = []
+  ): Promise<string> {
+    return ZenStreamService.getInstance().generateJWT(streamId, userId, role, permissions)
   }
 
-  static generateStreamUrls(streamId: string) {
-    const token = '{GENERATED_JWT_TOKEN}' // Placeholder
-    return ZenStreamService.getInstance().generateStreamUrls(streamId, token)
+  static async validateToken(token: string): Promise<JWTPayload | null> {
+    return ZenStreamService.getInstance().validateJWT(token)
   }
 
-  static generateJWTToken(
-    streamId: string, 
-    userId: string, 
-    role: 'teacher' | 'student' | 'admin'
-  ): string {
-    return ZenStreamService.getInstance().generateJWTToken(streamId, userId, role)
+  static getAnalytics(streamId: string): StreamAnalytics | null {
+    return ZenStreamService.getInstance().getStreamAnalytics(streamId)
   }
 
-  static verifyJWTToken(token: string): JWTPayload | null {
-    return ZenStreamService.getInstance().verifyJWTToken(token)
-  }
-
-  static refreshJWTToken(token: string): string | null {
-    return ZenStreamService.getInstance().refreshJWTToken(token)
-  }
-
-  static getTokenExpiryTime(token: string): Date | null {
-    return ZenStreamService.getInstance().getTokenExpiryTime(token)
-  }
-
-  static isTokenExpired(token: string): boolean {
-    return ZenStreamService.getInstance().isTokenExpired(token)
-  }
-
-  static getTokenTimeRemaining(token: string): number {
-    return ZenStreamService.getInstance().getTokenTimeRemaining(token)
+  static async getHealthStatus() {
+    return ZenStreamService.getInstance().healthCheck()
   }
 }
 
-// Export singleton instance for easy access
+// Export singleton instance
 export const zenStreamService = ZenStreamService.getInstance()

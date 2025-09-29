@@ -8,66 +8,24 @@ import {
   Calendar,
   User,
   PlayCircle,
-  BookOpen,
   Tag,
   Percent,
   Star,
   Award,
   Target,
-  BarChart3,
   Users,
-  Timer,
   CheckCircle,
   Lock,
-  Unlock,
   Download,
-  Share2,
-  BookmarkPlus,
-  MessageSquare,
   ThumbsUp,
-  ThumbsDown,
   Eye,
   TrendingUp,
-  Zap,
   Lightbulb,
   FileText,
   Video,
   Headphones,
-  Certificate,
-  Globe,
-  Languages,
-  Clock as ClockIcon,
-  Calendar as CalendarIcon,
-  User as UserIcon,
-  PlayCircle as PlayCircleIcon,
-  BookOpen as BookOpenIcon,
-  Tag as TagIcon,
-  Percent as PercentIcon,
-  Star as StarIcon,
-  Award as AwardIcon,
-  Target as TargetIcon,
-  BarChart3 as BarChart3Icon,
-  Users as UsersIcon,
-  Timer as TimerIcon,
-  CheckCircle as CheckCircleIcon,
-  Lock as LockIcon,
-  Unlock as UnlockIcon,
-  Download as DownloadIcon,
-  Share2 as ShareIcon,
-  BookmarkPlus as BookmarkPlusIcon,
-  MessageSquare as MessageSquareIcon,
-  ThumbsUp as ThumbsUpIcon,
-  ThumbsDown as ThumbsDownIcon,
-  Eye as EyeIcon,
-  TrendingUp as TrendingUpIcon,
-  Zap as ZapIcon,
-  Lightbulb as LightbulbIcon,
-  FileText as FileTextIcon,
-  Video as VideoIcon,
-  Headphones as HeadphonesIcon,
-  Certificate as CertificateIcon,
-  Globe as GlobeIcon,
-  Languages as LanguagesIcon,
+  FileCheck,
+  Globe
 } from "lucide-react";
 import { dbConnect } from "@/lib/dbConnect";
 import { Course } from "@/models/course";
@@ -92,6 +50,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Icon aliases
+const Certificate = FileCheck;
 
 interface TeacherData {
   _id: mongoose.Types.ObjectId | string;

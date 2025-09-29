@@ -22,11 +22,29 @@ const videoSchema = new mongoose.Schema(
       enum: ['pending', 'processing', 'completed', 'failed'], 
       default: 'pending' 
     },
+    processingJobId: { type: String }, // Processing job ID for tracking
     processingError: { type: String }, // Error message if processing failed
     fileSize: { type: Number }, // File size in bytes
     format: { type: String }, // Video format (mp4, avi, etc.)
     codec: { type: String }, // Video codec
     audioCodec: { type: String }, // Audio codec
+    // Enhanced fields for modern video processing
+    publicId: { type: String }, // Cloudinary public ID
+    width: { type: Number }, // Video width
+    height: { type: Number }, // Video height
+    bitRate: { type: Number }, // Bit rate from metadata
+    frameRate: { type: Number }, // Frame rate from metadata
+    thumbnails: [{ type: String }], // Array of thumbnail URLs
+    preview: { type: String }, // Preview clip URL
+    availableQualities: [{ type: String }], // Available quality variants
+    processedAt: { type: Date }, // When processing completed
+    hlsPlaylist: { type: String }, // Master HLS playlist URL
+    variants: [{ // Quality variants info
+      quality: { type: String },
+      url: { type: String },
+      bitrate: { type: Number },
+      resolution: { type: String }
+    }]
   },
   { timestamps: true }
 )
