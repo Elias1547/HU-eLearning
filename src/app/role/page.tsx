@@ -17,14 +17,13 @@ import {
   ClapperboardIcon as ChalkboardTeacher,
   ShieldCheck,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export default function RolePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("signin");
   const [adminExists, setAdminExists] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     // Check if admin exists
@@ -45,11 +44,9 @@ export default function RolePage() {
 
   const handleRoleSelect = (role: string) => {
     if (role === "admin" && adminExists && activeTab === "signup") {
-      toast({
-        title: "Admin Already Exists",
-        description: "Only one admin account is allowed in the system.",
-        variant: "destructive",
-      });
+      toast.warning(
+        "Admin Already Exists : Only one admin account is allowed in the system."
+      );
       return;
     }
 

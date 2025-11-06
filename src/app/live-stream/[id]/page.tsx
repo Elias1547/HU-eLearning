@@ -16,7 +16,7 @@ export default async function LiveStreamPage({ params }: LiveStreamPageProps) {
     redirect('/auth/signin')
   }
 
-  if (session.user.role === 'admin') {
+  if (session?.user.role === 'admin') {
     redirect('/admin')
   }
 

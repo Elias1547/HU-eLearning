@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import Image from "next/image";
 import { paymentValidationSchema } from "@/models/payment";
 import { Input } from "@/components/ui/input";
@@ -51,7 +51,6 @@ const paymentOptions = [
 export default function PaymentCheckoutPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { toast } = useToast();
 
   const courseId = searchParams.get("courseId") || "";
   const courseName = searchParams.get("courseName") || "";
@@ -74,11 +73,8 @@ export default function PaymentCheckoutPage() {
 
   useEffect(() => {
     if (!courseId || !courseName || !price) {
-      toast({
-        title: "Invalid Payment Link",
-        description: "Missing course information. Please try again.",
-        variant: "destructive",
-      });
+      toast.warning(
+         "Invalid Payment Link : Missing course information. Please try again.");
       router.push("/");
     }
     // eslint-disable-next-line
@@ -153,11 +149,9 @@ export default function PaymentCheckoutPage() {
         });
 
       if (!validation.success) {
-        toast({
-          title: "Invalid Payment Data",
-          description: "Please select a valid payment option.",
-          variant: "destructive",
-        });
+        toast.warning(
+          "Invalid Payment Data : Please select a valid payment option."
+        );
         setIsLoading(false);
         return;
       }
@@ -210,22 +204,15 @@ export default function PaymentCheckoutPage() {
               throw new Error("Payment verification failed");
             }
 
-            toast({
-              title: "Payment Successful",
-              description: "You have successfully enrolled in the course",
-            });
+            toast.success("Payment Successful : You have successfully enrolled in the course");
 
             router.push(`/courses/${courseId}`);
             router.refresh();
           } catch (error) {
-            toast({
-              title: "Payment Error",
-              description:
+            toast.error(
                 error instanceof Error
                   ? error.message
-                  : "An error occurred during payment verification",
-              variant: "destructive",
-            });
+                  : "An error occurred during payment verification");
           }
         },
         prefill: data.prefill,
@@ -254,14 +241,11 @@ export default function PaymentCheckoutPage() {
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error) {
-      toast({
-        title: "Payment Error",
-        description:
+      toast.error(
           error instanceof Error
             ? error.message
-            : "An error occurred while processing the payment",
-        variant: "destructive",
-      });
+            : "An error occurred while processing the payment"
+      );
     } finally {
       setIsLoading(false);
     }
