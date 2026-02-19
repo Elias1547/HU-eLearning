@@ -31,10 +31,10 @@ import {
 const roleNavConfigs = {
   student: {
     mainNav: [
-      { href: "/", label: "Home" },
+       { href: "/student/dashboard", label: "My Learning" },
       { href: "/courses", label: "Browse Courses" },
       { href: "/reviews", label: "Reviews" },
-      { href: "/student/dashboard", label: "My Learning" },
+    
     ],
     dropdownItems: [
       { href: "/student/profile", label: "Profile", icon: User },
@@ -44,7 +44,7 @@ const roleNavConfigs = {
   },
   teacher: {
     mainNav: [
-      { href: "/", label: "Home" },
+    
       { href: "/courses", label: "Browse Courses" },
       { href: "/reviews", label: "Reviews" },
       { href: "/teacher/dashboard", label: "Dashboard" },
@@ -65,9 +65,8 @@ const roleNavConfigs = {
   },
   admin: {
     mainNav: [
-      { href: "/", label: "Home" },
-      { href: "/reviews", label: "Reviews" },
-      { href: "/admin/dashboard", label: "Dashboard" },
+     { href: "/admin/dashboard", label: "Dashboard" },
+      { href: "/reviews", label: "Reviews" },     
       { href: "/admin/users", label: "Users" },
       { href: "/admin/courses", label: "Courses" },
     ],

@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Define public routes that don't need authentication
-  const publicRoutes = ["/", "/about", "/courses", "/role", "/contact", "/privacy", "/terms", "/test-session"]
+  const publicRoutes = ["/",  "/about", "/courses", "/role", "/contact", "/privacy", "/terms", "/test-session"]
 
   // Define auth pages
   const authPages = [
@@ -158,4 +158,6 @@ export const config = {
   matcher: [
     "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*$).*)",
   ],
-}
+} 
+
+

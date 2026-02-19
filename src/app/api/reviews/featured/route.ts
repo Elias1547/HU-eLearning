@@ -17,56 +17,43 @@ export async function GET() {
 
     // Aggregate featured reviews (rating >= 4), shuffle by seed, limit 3, and populate student/course
     const reviews = await Review.aggregate([
-      { $match: { rating: { $gte: 4 } } },
-      {
-        $addFields: {
-          randomSort: {
-            $mod: [
-              {
-                $add: [
-                  { $toLong: "$_id" },
-                  seed,
-                ],
-              },
-              1000000,
-            ],
-          },
-        },
-      },
-      { $sort: { randomSort: 1 } },
-      { $limit: 3 },
-      {
-        $lookup: {
-          from: "students",
-          localField: "student",
-          foreignField: "_id",
-          as: "student",
-        },
-      },
-      {
-        $lookup: {
-          from: "courses",
-          localField: "course",
-          foreignField: "_id",
-          as: "course",
-        },
-      },
-      { $unwind: "$student" },
-      { $unwind: "$course" },
-      {
-        $project: {
-          _id: 1,
-          rating: 1,
-          comment: 1,
-          createdAt: 1,
-          "student._id": 1,
-          "student.name": 1,
-          "course._id": 1,
-          "course.name": 1,
-        },
-      },
-    ]);
+  { $match: { rating: { $gte: 4 } } },
 
+  // Randomly select 3 documents
+  { $sample: { size: 3 } },
+
+  {
+    $lookup: {
+      from: "students",
+      localField: "student",
+      foreignField: "_id",
+      as: "student",
+    },
+  },
+  {
+    $lookup: {
+      from: "courses",
+      localField: "course",
+      foreignField: "_id",
+      as: "course",
+    },
+  },
+  { $unwind: "$student" },
+  { $unwind: "$course" },
+
+  {
+    $project: {
+      _id: 1,
+      rating: 1,
+      comment: 1,
+      createdAt: 1,
+      "student._id": 1,
+      "student.name": 1,
+      "course._id": 1,
+      "course.name": 1,
+    },
+  },
+]);
     return NextResponse.json({ reviews }, { status: 200 });
   } catch (error) {
     console.error("Error fetching featured reviews:", error);

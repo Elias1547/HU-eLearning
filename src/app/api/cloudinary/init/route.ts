@@ -74,15 +74,14 @@ export async function POST(req: Request) {
       eager_async: true,
       eager_notification_url: `${process.env.NEXTAUTH_URL}/api/cloudinary/webhook`,
       chunk_size: 6000000, // 6MB chunks for large files
-      resource_type: 'video',
+     
       format: 'mp4',
       quality: 'auto',
       fetch_format: 'auto',
       flags: 'attachment',
       use_filename: true,
       unique_filename: true,
-      overwrite: false,
-      invalidate: true,
+
       access_mode: 'public',
       type: 'upload',
       backup: true,

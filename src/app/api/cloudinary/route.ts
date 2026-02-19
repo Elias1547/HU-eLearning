@@ -178,7 +178,7 @@ export async function POST(req: Request) {
             eager_async: true,
             // Extract metadata
             duration: true,
-            bit_rate: true,
+           
             frame_rate: true
           },
           (error, result) => {

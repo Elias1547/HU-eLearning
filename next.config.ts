@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "media.geeksforgeeks.org" },
       { protocol: "https", hostname: "simpleprogrammer.com" },
       { protocol: "https", hostname: "marketplace.canva.com" },
+       { protocol: "https", hostname: "images.unsplash.com" },
+         { protocol: "https", hostname: "static-cse.canva.com" },
+       
     ],
   },
   typescript: {

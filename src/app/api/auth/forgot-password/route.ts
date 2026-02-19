@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     }
 
     const { email, role } = validatedData.data
-
+ console.log("Forgot password request for:", email, "as", role)
     await dbConnect()
 
     // Find user based on role

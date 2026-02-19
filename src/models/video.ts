@@ -1,6 +1,22 @@
-import mongoose from "mongoose"
+import mongoose, { Model, Document } from "mongoose"
+
 import { z } from "zod"
 
+
+
+export interface IVideo extends Document {
+  title: string
+  description?: string
+  url: string
+  hlsUrl?: string
+  course: mongoose.Types.ObjectId
+  position: number
+  isProcessed: boolean
+  processingStatus: "pending" | "processing" | "completed" | "failed"
+  publicId?: string
+  thumbnails?: string[]
+  variants?: { quality: string; url: string; bitrate?: number; resolution?: string }[]
+}
 // Define the video schema
 const videoSchema = new mongoose.Schema(
   {
@@ -50,7 +66,7 @@ const videoSchema = new mongoose.Schema(
 )
 
 // Create the Video model
-export const Video = mongoose.models?.Video ? mongoose.models.Video : mongoose.model("Video", videoSchema)
+
 
 // Zod validation schema
 export const videoValidationSchema = z.object({
@@ -75,4 +91,6 @@ export const videoValidationSchema = z.object({
   audioCodec: z.string().optional(),
 })
 
-export type VideoType = z.infer<typeof videoValidationSchema>
+export const Video: Model<IVideo> =
+  (mongoose.models.Video as Model<IVideo>) ||
+  mongoose.model<IVideo>("Video", videoSchema)

@@ -824,7 +824,7 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
                                   <PlayCircle className="h-4 w-4 mr-2" />
                                   Preview
                                 </Button>
-                              ) : isEnrolled ? (
+                              ) : isEnrolled || session?.user?.role === "teacher" || session?.user?.role === "admin" ? (
                                 <Link href={`/courses/${courseId}/learn/${video._id}`}>
                                   <Button size="sm">
                                     <PlayCircle className="h-4 w-4 mr-2" />

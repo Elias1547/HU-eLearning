@@ -56,6 +56,7 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
     setUploadProgress(0)
   }
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -75,114 +76,88 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
     let progressInterval: NodeJS.Timeout | undefined
     let videoUrl: string | undefined = undefined
 
-    if (videoFile.size <= MAX_SMALL_FILE_SIZE) {
-      progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(progressInterval)
-            return 95
-          }
-          return prev + 5
-        })
-      }, 500)
-    }
+ 
 
-    try {
-      if (videoFile.size <= MAX_SMALL_FILE_SIZE) {
-        // Small file: upload to your backend (which uploads to Cloudinary)
-        const formData = new FormData()
-        formData.append("file", videoFile)
-        formData.append("courseId", courseId)
-        formData.append("title", title)
-        formData.append("description", description)
-        formData.append("position", position.toString())
+   try {
+    console.log(
+  "Cloud Name:",
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  "Upload Preset:",
+  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+)
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
 
-        const response = await fetch("/api/cloudinary", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to upload video")
-        }
-
-        const videoData = await response.json()
-        videoUrl = videoData.video?.url || videoData.secure_url
-      } else {
-        // Large file: upload directly to Cloudinary with progress
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-
-        if (!cloudName || !uploadPreset) {
-          toast.error("Cloudinary config missing : Check your .env.local for NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.")
-          setUploading(false)
-          return
-        }
-
-        const videoFormData = new FormData()
-        videoFormData.append("file", videoFile)
-        videoFormData.append("upload_preset", uploadPreset)
-
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.open(
-            "POST",
-            `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
-          )
-
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const percent = Math.round((event.loaded / event.total) * 95)
-              setUploadProgress(percent)
-            }
-          }
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const response = JSON.parse(xhr.responseText)
-                videoUrl = response.secure_url
-                setUploadProgress(100)
-                resolve()
-              } catch (error) {
-                reject(new Error(error instanceof Error ? error.message : "Invalid response from Cloudinary"))
-              }
-            } else {
-              reject(new Error("Failed to upload video to Cloudinary"))
-            }
-          }
-
-          xhr.onerror = () => {
-            reject(new Error("Network error during video upload"))
-          }
-
-          xhr.ontimeout = () => {
-            reject(new Error("Video upload timed out"))
-          }
-
-          xhr.send(videoFormData)
-        })
-      }
-
-      if (progressInterval) clearInterval(progressInterval)
-      setUploadProgress(100)
-
-      toast.success("Video uploaded successfully")
-
-      resetForm()
-      setOpen(false)
-
-      if (onSuccess) {
-        onSuccess(videoUrl)
-      }
-    } catch (error) {
-      if (progressInterval) clearInterval(progressInterval)
-      console.error("Error uploading video:", error)
-      toast.error("Failed to upload video. Please try again.")
-    } finally {
-      setUploading(false)
-    }
+  if (!cloudName || !uploadPreset) {
+    toast.error("Cloudinary config missing")
+    setUploading(false)
+    return
   }
+
+  const formData = new FormData()
+  formData.append("file", videoFile)
+  formData.append("upload_preset", uploadPreset)
+  formData.append("resource_type", "video")
+
+  const xhr = new XMLHttpRequest()
+
+  await new Promise<void>((resolve, reject) => {
+    xhr.open(
+      "POST",
+      `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
+    )
+
+   // ✅ Use real progress
+  xhr.upload.onprogress = (event) => {
+    if (event.lengthComputable) {
+      const percent = Math.round((event.loaded / event.total) * 100);
+      setUploadProgress(percent);
+    }
+  };
+
+    xhr.onload = async () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const data = JSON.parse(xhr.responseText)
+
+        const videoUrl = data.secure_url
+        const publicId = data.public_id
+
+        // 🔥 NOW send metadata to your backend (NO FILE)
+        await fetch("/api/videos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            courseId,
+            title,
+            description,
+            position,
+            videoUrl,
+            publicId,
+          }),
+        })
+
+        resolve()
+      } else {
+        reject(new Error("Cloudinary upload failed"))
+      }
+    }
+
+    xhr.onerror = () => reject(new Error("Upload failed"))
+    xhr.send(formData)
+  })
+
+  toast.success("Video uploaded successfully")
+  resetForm()
+  setOpen(false)
+
+  if (onSuccess) onSuccess()
+
+} catch (error) {
+  console.error(error)
+  toast.error("Failed to upload video")
+}}
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -290,5 +265,5 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
         </form>
       </DialogContent>
     </Dialog>
-  )
-}
+  )}
+

@@ -52,106 +52,53 @@ export default function AdaptiveVideoPlayer({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+ useEffect(() => {
+  const video = videoRef.current
+  if (!video) return
 
+  setLoading(true)
+  setError(null)
+
+  // ✅ ONLY use HLS for .m3u8
+  if (src.endsWith(".m3u8")) {
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 600,
-        maxBufferSize: 60 * 1000 * 1000,
-        maxBufferHole: 0.5,
-        highBufferWatchdogPeriod: 2,
-        nudgeOffset: 0.1,
-        nudgeMaxRetry: 3,
-        maxFragLookUpTolerance: 0.25,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 10,
-        liveDurationInfinity: false,
-        liveBackBufferLength: 0,
-        maxLiveSyncPlaybackRate: 1,
-        manifestLoadingTimeOut: 10000,
-        manifestLoadingMaxRetry: 1,
-        manifestLoadingRetryDelay: 1000,
-        levelLoadingTimeOut: 10000,
-        levelLoadingMaxRetry: 4,
-        levelLoadingRetryDelay: 1000,
-        fragLoadingTimeOut: 20000,
-        fragLoadingMaxRetry: 6,
-        fragLoadingRetryDelay: 1000,
-        startFragPrefetch: true,
-        testBandwidth: true
-      })
+      const hls = new Hls()
 
       hls.loadSource(src)
       hls.attachMedia(video)
       hlsRef.current = hls
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('HLS manifest parsed')
         setLoading(false)
-        
-        // Extract quality levels
-        const qualities = hls.levels.map((level, index) => ({
-          level: index,
-          height: level.height,
-          bitrate: level.bitrate,
-          name: level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}k`
-        }))
-        
-        setAvailableQualities(qualities)
-
-        if (autoPlay) {
-          video.play().catch(console.error)
-        }
-      })
-
-      hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-        console.log('Level switched to:', data.level)
+        if (autoPlay) video.play().catch(console.error)
       })
 
       hls.on(Hls.Events.ERROR, (event, data) => {
-        console.error('HLS Error:', data)
+        console.error("HLS Error:", data)
         if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('Fatal network error encountered, try to recover')
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('Fatal media error encountered, try to recover')
-              hls.recoverMediaError()
-              break
-            default:
-              setError('Fatal error, cannot recover')
-              hls.destroy()
-              break
-          }
+          setError("Video streaming error")
+          hls.destroy()
         }
       })
 
       return () => {
-        if (hls) {
-          hls.destroy()
-        }
+        hls.destroy()
       }
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari)
+    } 
+    else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src
       setLoading(false)
-      
-      if (autoPlay) {
-        video.play().catch(console.error)
-      }
-    } else {
-      setError('HLS is not supported in this browser')
-      setLoading(false)
     }
-  }, [src, autoPlay])
+  } 
+
+  // ✅ If MP4 → DO NOT USE HLS
+  else {
+    video.src = src
+    setLoading(false)
+    if (autoPlay) video.play().catch(console.error)
+  }
+
+}, [src, autoPlay])
 
   useEffect(() => {
     const video = videoRef.current

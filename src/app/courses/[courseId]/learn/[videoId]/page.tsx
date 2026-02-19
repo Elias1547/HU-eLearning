@@ -1,8 +1,10 @@
+
 import { notFound } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -47,7 +49,8 @@ import { Course as CourseModel } from "@/models/course"
 import { Video as VideoModel } from "@/models/video"
 import { Student } from "@/models/student"
 import { CourseProgress } from "@/models/course-progress"
-import AdaptiveVideoPlayer from "@/components/video/adaptive-video-player"
+
+import LearnVideoClient from "@/components/video/learn-video-client"
 import type mongoose from "mongoose"
 import { authOptions } from "@/lib/auth"
 import { Badge } from "@/components/ui/badge"
@@ -283,9 +286,9 @@ async function updateProgress(
 
 // --- Main Page ---
 export default async function LearnPage(
-  { params }: { params: { courseId: string; videoId: string } }
+   { params }: { params: Promise<{ courseId: string; videoId: string }> }
 ) {
-  const { courseId, videoId } = params;
+  const { courseId, videoId } = await params;
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -385,20 +388,10 @@ export default async function LearnPage(
             <div className="space-y-4">
               <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
                 {currentVideo.url ? (
-                  <AdaptiveVideoPlayer
+                 <LearnVideoClient
                     src={currentVideo.url}
                     title={currentVideo.title}
-                    className="w-full h-full"
-                    autoPlay={false}
-                    controls={true}
                     poster={currentVideo.thumbnail}
-                    onTimeUpdate={(currentTime) => {
-                      // Update video progress
-                      console.log('Video progress:', currentTime)
-                    }}
-                    onDurationChange={(duration) => {
-                      console.log('Video duration:', duration)
-                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white bg-muted">
