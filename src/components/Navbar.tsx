@@ -26,6 +26,7 @@ import {
   PlusCircle,
   Star,
 } from "lucide-react";
+import { Label } from "@radix-ui/react-dropdown-menu";
 
 // Role-specific navigation configurations
 const roleNavConfigs = {
@@ -33,6 +34,7 @@ const roleNavConfigs = {
     mainNav: [
        { href: "/student/dashboard", label: "My Learning" },
       { href: "/courses", label: "Browse Courses" },
+      { href: "/student/assignments", label: "assignments"},
       { href: "/reviews", label: "Reviews" },
     
     ],
@@ -49,6 +51,8 @@ const roleNavConfigs = {
       { href: "/reviews", label: "Reviews" },
       { href: "/teacher/dashboard", label: "Dashboard" },
       { href: "/teacher/courses", label: "My Courses" },
+      { href: "/teacher/message", label: "Messages" },
+      { href: "/teacher/assignments" , label: "Assignments" },
     ],
     dropdownItems: [
       { href: "/teacher/profile", label: "Profile", icon: User },

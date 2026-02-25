@@ -6,11 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 interface StudyMaterial {
-  _id: string;
-  title: string;
-  description: string;
+  name: string;
   url: string;
 }
+
 
 export function StudyMaterialSection({
   courseId,
@@ -27,7 +26,8 @@ export function StudyMaterialSection({
     // Fetch study materials for the course
     fetch(`/api/courses/${courseId}/study-material/list`)
       .then((res) => res.json())
-      .then((data) => setMaterials(data.materials || []));
+      .then((data) => setMaterials(data.files || []));
+
   }, [courseId]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,7 +48,8 @@ export function StudyMaterialSection({
       // Refresh materials
       fetch(`/api/courses/${courseId}/study-material/list`)
         .then((res) => res.json())
-        .then((data) => setMaterials(data.materials || []));
+        .then((data) => setMaterials(data.files || []));
+
     } else {
       setError("Upload failed");
     }
@@ -77,25 +78,21 @@ export function StudyMaterialSection({
         <div className="space-y-3">
           {materials.map((material) => (
             <div
-              key={material._id}
+              key={material.name}
               className="border rounded-lg p-4 flex items-center justify-between bg-muted/10"
             >
               <div>
-                <h4 className="font-medium">{material.title}</h4>
-                <p className="text-xs text-muted-foreground">
-                  {material.description}
-                </p>
+                <h4 className="font-medium">{material.name}</h4>
+                
               </div>
               <div className="flex gap-2">
-                <a
-                  href={material.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" size="sm">
-                    Preview
-                  </Button>
-                </a>
+               <Button
+  variant="outline"
+  size="sm"
+  onClick={() => window.open(material.url, "_blank")}
+>
+  Preview
+</Button>
                 <a href={material.url} download>
                   <Button variant="secondary" size="sm">
                     Download
@@ -108,6 +105,7 @@ export function StudyMaterialSection({
       ) : (
         <div className="text-muted-foreground text-sm">
           No study materials yet.
+          
         </div>
       )}
     </div>

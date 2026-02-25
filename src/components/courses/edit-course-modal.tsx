@@ -254,6 +254,11 @@ export function EditCourseModal({ course, courseId }: EditCourseModalProps) {
                 <Tag className="h-4 w-4" /> Manage Coupon
               </Button>
             </Link>
+            <Link href={`/courses/${courseId}/materials`}>
+            <Button variant="secondary" size="sm">
+            Edit video
+            </Button>
+            </Link>
             <div className="flex gap-2 justify-end pt-2">
               <Button
                 type="button"

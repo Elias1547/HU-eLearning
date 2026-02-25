@@ -231,7 +231,9 @@ async function getVideoAndCourse(
 
 async function checkEnrollmentStatus(
   courseId: string,
-  userId?: string
+  userId?: string,
+ 
+
 ): Promise<boolean> {
   if (!userId) return false;
 
@@ -306,9 +308,9 @@ export default async function LearnPage(
     );
   }
 
-  const isEnrolled = await checkEnrollmentStatus(courseId, session.user.id);
+  const isEnrolled = await checkEnrollmentStatus(courseId, session.user.id); 
 
-  if (!isEnrolled) {
+  if (!isEnrolled && session.user.role !== "teacher") {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <div className="max-w-md mx-auto">

@@ -11,6 +11,11 @@ export interface IVideo extends Document {
   hlsUrl?: string
   course: mongoose.Types.ObjectId
   position: number
+  duration?: number
+  width?: number
+  height?: number
+  format?: string
+  fileSize?: number
   isProcessed: boolean
   processingStatus: "pending" | "processing" | "completed" | "failed"
   publicId?: string
