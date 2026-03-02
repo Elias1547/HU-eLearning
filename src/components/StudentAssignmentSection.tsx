@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import Countdown from "./countdown"
 
 export default function StudentAssignmentSection({
   courseId,
@@ -39,9 +41,13 @@ export default function StudentAssignmentSection({
         body: formData,
       }
     )
+  
+     
 
     const data = await res.json()
     return data.secure_url
+  
+  
   }
 
   const submitAssignment = async (assignmentId: string) => {
@@ -62,8 +68,8 @@ export default function StudentAssignmentSection({
     setFile(null)
     setUploading(false)
     fetchAssignments()
+    toast.success("Assignment submitted successfully!")
   }
-
   const getCountdown = (dueDate: string) => {
     const diff = new Date(dueDate).getTime() - new Date().getTime()
     if (diff <= 0) return "Deadline Passed"
@@ -76,15 +82,16 @@ export default function StudentAssignmentSection({
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">My Assignments</h1>
+      <h1 className="text-xl font-semibold mb-4">My Assignments</h1>
+      {assignments.length === 0 && (
+        <p className="text-gray-600">No assignments found for this course.</p>
+      )}
 
       {assignments.map(a => (
         <div key={a._id} className="border p-4 mb-4 rounded shadow-sm">
 
           {/* Title */}
           <h2 className="font-semibold text-lg">{a.title}</h2>
-
-          {/* Due Date */}
           <p className="text-sm text-gray-600">
             Due: {new Date(a.dueDate).toLocaleString()}
           </p>
@@ -99,7 +106,7 @@ export default function StudentAssignmentSection({
             <a
               href={a.fileUrl}
               target="_blank"
-              className="text-blue-500 underline text-sm block mt-2"
+              className="underline text-sm block mt-2 text-gray-400"
             >
               📄 View Assignment File
             </a>
@@ -108,7 +115,7 @@ export default function StudentAssignmentSection({
           {/* Status Badge */}
           <div className="mt-3">
             {!a.mySubmission ? (
-              <span className="px-3 py-1 text-xs rounded bg-gray-100 text-gray-600">
+              <span className="px-3 py-1 text-xs rounded bg-gray-100 text-gray-500">
                 Not Submitted
               </span>
             ) : a.mySubmission.graded ? (

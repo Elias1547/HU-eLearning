@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 interface StudyMaterial {
   name: string;
@@ -86,13 +87,44 @@ export function StudyMaterialSection({
                 
               </div>
               <div className="flex gap-2">
-               <Button
-  variant="outline"
-  size="sm"
-  onClick={() => window.open(material.url, "_blank")}
->
-  Preview
-</Button>
+              
+              {!isTeacher && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(material.url, "_blank")}
+                >
+                  Preview
+                </Button>
+              )}
+           
+             {isTeacher && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(
+                          `/api/courses/${courseId}/study-material/${encodeURIComponent(
+                            material.name
+                          )}`,
+                          { method: "DELETE" }
+                        );
+
+                        if (!res.ok) throw new Error("Failed to delete file");
+
+                        setMaterials((prev) =>
+                          prev.filter((m) => m.name !== material.name)
+                        );
+                        toast.success("File deleted successfully");
+                      } catch {
+                        toast.error("Failed to delete file");
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                )}
                 <a href={material.url} download>
                   <Button variant="secondary" size="sm">
                     Download

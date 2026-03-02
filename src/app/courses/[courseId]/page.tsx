@@ -53,6 +53,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import  EditVideoModal  from "@/components/video/EditVideoModal";
 import AssignmentSection from "@/components/assignment";
 import StudentAssignmentSection from "@/components/StudentAssignmentSection";
+import CourseQuizSection from "@/components/CourseQuizSection";
 
 // Icon aliases
 const Certificate = FileCheck;
@@ -865,6 +866,16 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
 
                 {/* Study Material Section */}
                 <StudyMaterialSection courseId={courseId} isTeacher={!!isTeacher} />
+
+                  {(isEnrolled || isTeacher || session?.user?.role === "admin") && (
+                  <CourseQuizSection courseId={courseId} />
+                )}
+               
+                
+                {session?.user?.role === "student" && (
+                  <StudentAssignmentSection courseId={courseId} />
+                  
+                )}
                 {session?.user?.role === "teacher" && (
                   <AssignmentSection courseId={courseId} isTeacher={!!isTeacher} />
                 )}
