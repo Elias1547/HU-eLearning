@@ -27,6 +27,7 @@ import {
   Star,
 } from "lucide-react";
 import { Label } from "@radix-ui/react-dropdown-menu";
+import AnnauncementBell from "./annauncementBell";
 
 // Role-specific navigation configurations
 const roleNavConfigs = {
@@ -34,8 +35,8 @@ const roleNavConfigs = {
     mainNav: [
        { href: "/student/dashboard", label: "My Learning" },
       { href: "/courses", label: "Browse Courses" },
-      { href: "/student/assignments", label: "assignments"},
       { href: "/reviews", label: "Reviews" },
+         
     
     ],
     dropdownItems: [
@@ -48,11 +49,8 @@ const roleNavConfigs = {
     mainNav: [
     
       { href: "/courses", label: "Browse Courses" },
-      { href: "/reviews", label: "Reviews" },
-      { href: "/teacher/dashboard", label: "Dashboard" },
       { href: "/teacher/courses", label: "My Courses" },
-      { href: "/teacher/message", label: "Messages" },
-      { href: "/teacher/assignments" , label: "Assignments" },
+      { href: "/teacher/announcements", label: "Announcements" },
     ],
     dropdownItems: [
       { href: "/teacher/profile", label: "Profile", icon: User },
@@ -72,7 +70,10 @@ const roleNavConfigs = {
      { href: "/admin/dashboard", label: "Dashboard" },
       { href: "/reviews", label: "Reviews" },     
       { href: "/admin/users", label: "Users" },
+      { href: "/admin/announcements", label: "Announcements" },
       { href: "/admin/courses", label: "Courses" },
+      
+   
     ],
     dropdownItems: [
       { href: "/admin/profile", label: "Profile", icon: User },
@@ -80,6 +81,7 @@ const roleNavConfigs = {
       { href: "/admin/courses", label: "Manage Courses", icon: BookOpen },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/admin/settings", label: "Settings", icon: Settings },
+     
     ],
   },
 };
@@ -90,6 +92,7 @@ const studentNavConfig = {
     { href: "/courses", label: "Courses" },
     { href: "/reviews", label: "Reviews" },
     { href: "/about", label: "About" },
+  
   ],
   dropdownItems: [
     { href: "/student/dashboard", label: "Dashboard" },
@@ -97,6 +100,7 @@ const studentNavConfig = {
     { href: "/student/profile", label: "Profile" },
   ],
 };
+
 
 // Default navigation config for users with no role or unauthenticated
 const defaultNavConfig = {
@@ -162,6 +166,7 @@ export function Navbar() {
               </Link>
             ))}
           </nav>
+           {session?.user?.role === "student" && <AnnauncementBell /> }
         </div>
 
         <div className="flex items-center gap-4">
