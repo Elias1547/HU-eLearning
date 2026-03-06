@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { announcementValidationSchema, type Announcement } from "@/models/announcement"
 
 type Announcement = {
   _id: string
@@ -14,7 +15,7 @@ type Announcement = {
 
 type Course = {
   _id: string
-  title: string
+  name: string
 }
 
 export default function AnnouncementsPage() {
@@ -38,7 +39,9 @@ export default function AnnouncementsPage() {
   const fetchCourses = async () => {
     const res = await fetch("/api/teacher/courses")
     const data = await res.json()
+     
     if (res.ok) setCourses(data.courses)
+   
   }
 
   const fetchAnnouncements = async () => {
@@ -62,29 +65,44 @@ export default function AnnouncementsPage() {
     fetchAnnouncements()
   }, [selectedCourse, scope])
 
-  const createAnnouncement = async () => {
-    if (scope === "course" && !selectedCourse) {
-      return toast.error("Select a course")
+ const createAnnouncement = async () => {
+  try {
+    const data = {
+      title,
+      message,
+      scope,
+      ...(scope === "course" && { course: selectedCourse }) // include course only for course announcements
     }
+
+    const validated = announcementValidationSchema.parse(data) // validate
 
     const res = await fetch("/api/announcements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        message,
-        scope,
-        ...(scope === "course" && { course: selectedCourse })
-      }),
+      body: JSON.stringify(validated),
     })
 
     if (res.ok) {
       toast.success("Announcement created")
       setTitle("")
       setMessage("")
+      setScope("global")
+      setSelectedCourse("")
       fetchAnnouncements()
+    } else {
+      const error = await res.json()
+      toast.error(error.error || "Failed to create announcement")
+    }
+
+  } catch (err: any) {
+    if (err.name === "ZodError") {
+      err.errors.forEach((e: any) => toast.error(e.message))
+    } else {
+      toast.error("Unexpected error occurred")
+      console.error(err)
     }
   }
+}
 
 const handleDelete = async (id: string) => {
   const res = await fetch(`/api/announcements/${id}`, {
@@ -113,30 +131,31 @@ const handleDelete = async (id: string) => {
           className="w-full border p-2 rounded"
         >
           <option value="global">Global</option>
-          <option value="course">Course</option>
+         
         </select>
       )}
 
       {/* Course Selector */}
-      {scope === "course" && (
-        <select
-          value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
-          className="w-full border p-2 rounded"
-        >
-          <option value="">Select a course</option>
-          {courses.map((course) => (
-            <option key={course._id} value={course._id}>
-              {course.title}
-            </option>
-          ))}
-        </select>
-      )}
+   {/*    {scope === "course" && (
+          <select
+        value={selectedCourse}
+        onChange={(e) => setSelectedCourse(e.target.value)}
+        className="w-full border p-2 rounded"
+      >
+        <option  value="">Select a course</option>
+         
+        {courses.map((course) => (
+          <option key={course._id} value={course._id}>
+            {course.name}
+          </option>
+        ))}
+      </select>
+      )} */}
 
       {/* Create Announcement */}
       <div className="border p-4 rounded space-y-3">
         <h2 className="font-semibold">
-          Create {scope === "global" ? "Global" : "Course"} Announcement
+          Create {scope === "global" } Announcement
         </h2>
 
         <input
@@ -181,15 +200,15 @@ const handleDelete = async (id: string) => {
                 </span>
               </div>
 
-              <p className="mt-2 text-gray-700">{a.message}</p>
+              <p className="mt-2 text-gray-400">{a.message}</p>
 
-              <div className="text-xs text-gray-400 mt-2">
+              <div className="text-xs text-gray-500 mt-2">
                 {new Date(a.createdAt).toLocaleString()}
               </div>
 
               <div className="flex justify-end mt-2">
                 <Button
-                  variant="destructive"
+                  variant="secondary"
                   size="sm"
                   onClick={() => handleDelete(a._id)}
                 >

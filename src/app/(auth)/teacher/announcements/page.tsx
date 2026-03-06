@@ -1,6 +1,6 @@
 "use client"
 
-import AnnouncementDropdown from "@/components/AnnouncementDropdown"
+
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -15,7 +15,7 @@ type Announcement = {
 
 type Course = {
   _id: string
-  title: string
+  name: string
 }
 
 export default function TeacherAnnouncementsPage() {
@@ -30,26 +30,13 @@ export default function TeacherAnnouncementsPage() {
   const fetchCourses = async () => {
     const res = await fetch("/api/teacher/courses")
     const data = await res.json()
-      console.log("Courses response:", data)
+     
     if (res.ok) setCourses(data.courses)
-  }
-const handleEdit = async () => {  // Implement edit functionality
-  await fetch("/api/announcements", {
-    method: "put",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      title,
-      message,
-      scope: "course",
-      course: selectedCourse,
-    }),
-  })
-  toast.success("Announcement updated")
    
+  }
 
-}
-const handleDelete = async () => {  // Implement delete functionality
-  const res = await fetch(`/api/announcements/${announcements[0]._id}`, {
+const handleDelete = async (id: string) => {  // Implement delete functionality
+  const res = await fetch(`/api/announcements/${id}`, {
     method: "DELETE",
   })
 
@@ -72,18 +59,20 @@ const handleDelete = async () => {  // Implement delete functionality
     const data = await res.json()
     if (res.ok) setAnnouncements(data.announcements)
     setLoading(false)
+  console.log("Announcements:", data)
   }
 
   useEffect(() => {
     fetchCourses()
     fetchAnnouncements()
+    
   }, [selectedCourse])
   
 
   const createAnnouncement = async () => {
     if (!selectedCourse) return alert("Select a course")
 
-    await fetch("/api/announcements", {
+    const res = await fetch("/api/announcements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -93,12 +82,16 @@ const handleDelete = async () => {  // Implement delete functionality
         course: selectedCourse,
       }),
     })
-
-    setTitle("")
-    setMessage("")
-    fetchAnnouncements()
-    toast.success("Announcement created")
+if (res.ok) {      
+      setTitle("")
+      setMessage("")
+      fetchAnnouncements()
+      toast.success("Announcement created")
+    } else {
+      toast.error("Failed to create announcement")
+    }
   }
+ 
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6">
@@ -110,13 +103,14 @@ const handleDelete = async () => {  // Implement delete functionality
       <select
         value={selectedCourse}
         onChange={(e) => setSelectedCourse(e.target.value)}
-        className="w-full border p-2 rounded"
+        className="w-full border p-2 rounded "
       >
-        <option  value="">Select a course</option>
-         
+        <option className="bg-black" value="">
+          Select a course
+        </option>
         {courses.map((course) => (
-          <option key={course._id} value={course._id}>
-            {course.title}
+          <option className="bg-black" key={course._id} value={course._id}>
+            {course.name}
           </option>
         ))}
       </select>
@@ -127,7 +121,7 @@ const handleDelete = async () => {  // Implement delete functionality
           <h2 className="font-semibold">Create Course Announcement</h2>
 
           <input
-            placeholder="Title"
+            placeholder="Course Name"
             className="w-full border p-2 rounded"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -161,21 +155,41 @@ const handleDelete = async () => {  // Implement delete functionality
             <div key={a._id} className="border p-4 rounded shadow-sm">
               <div className="flex justify-between">
                 <h3 className="font-semibold">{a.title}</h3>
-                <span className="text-xs  px-2 py-1 rounded">
+               <span
+                  className={`text-xs px-2 py-1 rounded ${
+                    a.scope === "global"
+                      ? "bg-purple-100 text-purple-700"
+          
+
+                   
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
                   {a.scope}
+               
+                 
+                
                 </span>
               </div>
-              <p className="mt-2 text-gray-700">{a.message}</p>
+              <p className="mt-2 text-gray-400">{a.message}</p>
               <div className="text-xs text-gray-400 mt-2">
                 {new Date(a.createdAt).toLocaleString()}
               </div>
               <div className="flex justify-end mt-2">
                 {/* Edit and Delete buttons can be added here */}
-           
-                <Button variant="destructive" size="sm"
-                onClick={handleDelete}>
+              
+               {a.scope === "course"  && (
+                   
+                  <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDelete(a._id)}
+                  >
                   Delete
-                </Button>
+              </Button>
+               
+               )}
+             
               </div>
             </div>
           ))}
