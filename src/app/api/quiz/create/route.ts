@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     await dbConnect()
 
     const body = await req.json()
+    console.log("Quiz body:", body)
     const courseId = body.courseId || body.course
     if (!courseId) {
       return NextResponse.json({ error: "courseId is required" }, { status: 400 })

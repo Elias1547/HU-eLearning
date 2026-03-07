@@ -64,30 +64,41 @@ function serializeQuizForTeacherOrAdmin(quiz: QuizLean) {
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { quizId: string } }) {
+export async function DELETE(
+  _req: Request,
+  context: { params: Promise<{ quizId: string }> }
+) {
   try {
+    const { quizId } = await context.params
+
     const session = await getServerSession(authOptions)
+
     if (!session?.user || (session.user.role !== "teacher" && session.user.role !== "admin")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     await dbConnect()
-    const quiz = await Quiz.findById(params.quizId)
+
+    const quiz = await Quiz.findById(quizId)
     if (!quiz) {
       return NextResponse.json({ message: "Quiz not found" }, { status: 404 })
     }
 
     if (session.user.role === "teacher") {
       const course = await Course.findById(quiz.course).lean()
+
       if (!course || course.teacher?.toString() !== session.user.id) {
         return NextResponse.json({ message: "Forbidden" }, { status: 403 })
       }
     }
 
     await quiz.deleteOne()
+
     return NextResponse.json({ message: "Quiz deleted successfully" })
+
   } catch (error) {
     console.error("Quiz delete error:", error)
+
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

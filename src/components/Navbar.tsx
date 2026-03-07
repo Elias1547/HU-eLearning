@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Label } from "@radix-ui/react-dropdown-menu";
 import AnnauncementBell from "./annauncementBell";
+import { ModeToggle } from "./ui/toggle";
 
 // Role-specific navigation configurations
 const roleNavConfigs = {
@@ -182,13 +183,14 @@ export function Navbar() {
               </Link>
             </div>
           )}
-
+            <ModeToggle />  
           {showUserDropdown && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center xlg:justify-end gap-4">
               <Link href={getDashboardLink()} className="hidden md:block">
                 <Button variant="outline" size="sm">
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Dashboard
+                
                 </Button>
               </Link>
               <DropdownMenu>
@@ -248,11 +250,7 @@ export function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          )}
-
-          {/* Mobile Menu Toggle */}
-          <Button
+                <Button
             variant="ghost"
             size="sm"
             className="md:hidden"
@@ -264,6 +262,11 @@ export function Navbar() {
               <Menu className="h-5 w-5" />
             )}
           </Button>
+            </div>
+          )}
+
+      
+        
         </div>
       </div>
 

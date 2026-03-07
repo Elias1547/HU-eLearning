@@ -9,9 +9,9 @@ import { toast } from "sonner"
 
 type MultipleChoiceQuestionDraft = {
   type: "multiple_choice"
-  prompt: string
+  questionText: string
   options: [string, string, string, string]
-  correctOptionIndex: 0 | 1 | 2 | 3
+  correctAnswerIndex: 0 | 1 | 2 | 3
   points: number
 }
 
@@ -29,9 +29,9 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
       ...prev,
       {
         type: "multiple_choice",
-        prompt: "",
+        questionText: "",
         options: ["", "", "", ""] as [string, string, string, string],
-        correctOptionIndex: 0,
+        correctAnswerIndex: 0,
         points: 1,
       },
     ])

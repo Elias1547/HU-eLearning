@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import TeacherQuizManager from "./TeacherQuizManager"
 import TeacherQuizSubmissions from "./TeacherQuizSubmissions"
 import StudentQuiz from "./StudentQuiz"
+import { toast } from "sonner"
 
 type QuizSummary = {
   _id: string
@@ -26,6 +27,7 @@ export default function CourseQuizSection({ courseId }: { courseId: string }) {
   const [loading, setLoading] = useState(true)
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null)
   const [mode, setMode] = useState<"take" | "submissions">("take")
+const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const role = session?.user?.role
 
@@ -37,6 +39,7 @@ export default function CourseQuizSection({ courseId }: { courseId: string }) {
   const refresh = async () => {
     try {
       setLoading(true)
+      console.log("Quiz body:", body)
       const res = await fetch(`/api/quiz/course/${courseId}`)
       const data = await res.json()
       setQuizzes(data?.quizzes || [])
@@ -44,6 +47,20 @@ export default function CourseQuizSection({ courseId }: { courseId: string }) {
       setLoading(false)
     }
   }
+const deleteQuiz = async (quizId: string) => {
+  setDeletingId(quizId)
+
+  const res = await fetch(`/api/quiz/${quizId}`, { method: "DELETE" })
+
+  if (res.ok) {
+    toast.success("Quiz deleted")
+    refresh()
+  } else {
+    toast.error("Failed to delete quiz")
+  }
+
+  setDeletingId(null)
+}
 
   useEffect(() => {
     if (status === "loading") return
@@ -108,7 +125,7 @@ export default function CourseQuizSection({ courseId }: { courseId: string }) {
                     {canViewSubmissions && (
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="outline"                      
                         onClick={() => {
                           setSelectedQuizId(q._id)
                           setMode("submissions")
@@ -117,7 +134,18 @@ export default function CourseQuizSection({ courseId }: { courseId: string }) {
                         Submissions
                       </Button>
                     )}
-                  </div>
+
+                    {role === "teacher" && 
+                    (<Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={deletingId === q._id}
+                      onClick={() => deleteQuiz(q._id)}
+                    >
+                      {deletingId === q._id ? "Deleting..." : "Delete"}
+                  </Button> )}
+                 </div>
+                 
                 </div>
               </div>
             ))

@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/lib/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/lib/theme-provider";
+import { ThemeProvider } from "next-themes";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Breadcrumbs } from "@/components/navbar-breadcrumb";
@@ -53,7 +53,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <ThemeProvider   attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange>
             <div className="flex flex-col min-h-screen">
               <Navbar />
               <Breadcrumbs />
