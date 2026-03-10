@@ -39,10 +39,13 @@ const [deletingId, setDeletingId] = useState<string | null>(null)
   const refresh = async () => {
     try {
       setLoading(true)
-      console.log("Quiz body:", body)
-      const res = await fetch(`/api/quiz/course/${courseId}`)
+         
+      const res = await fetch(`/api/quiz/course/${courseId}`,
+       
+      )
       const data = await res.json()
       setQuizzes(data?.quizzes || [])
+      
     } finally {
       setLoading(false)
     }

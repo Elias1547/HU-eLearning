@@ -151,7 +151,7 @@ export function Navbar() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2">
             <BookOpen className="h-6 w-6" />
-            <span className="hidden font-bold sm:inline-block">EduLearn</span>
+            <span className="hidden font-bold sm:inline-block">HU-elearning</span>
           </Link>
           {/* Desktop Navigation */}
           <nav className="hidden md:flex gap-6">
@@ -170,7 +170,7 @@ export function Navbar() {
            {session?.user?.role === "student" && <AnnauncementBell /> }
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 lg: justify-end">
           {showAuthButtons && (
             <div className="flex items-center gap-4">
               <Link href="/role">

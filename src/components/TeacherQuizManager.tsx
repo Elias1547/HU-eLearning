@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { quizValidationSchema } from "@/models/quiz"
 
 type MultipleChoiceQuestionDraft = {
   type: "multiple_choice"
@@ -24,6 +25,7 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
   const [published, setPublished] = useState(false)
   const [questions, setQuestions] = useState<MultipleChoiceQuestionDraft[]>([])
 
+  // Add a new question
   const addQuestion = () => {
     setQuestions((prev) => [
       ...prev,
@@ -37,6 +39,12 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
     ])
   }
 
+  // Remove the last question
+  const cancelLastQuestion = () => {
+    setQuestions((prev) => prev.slice(0, -1))
+  }
+
+  // Update question fields
   const updateQuestion = <K extends keyof MultipleChoiceQuestionDraft>(
     index: number,
     field: K,
@@ -49,6 +57,7 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
     })
   }
 
+  // Update question option
   const updateOption = (qIndex: number, optIndex: number, value: string) => {
     setQuestions((prev) => {
       const updated = [...prev]
@@ -59,7 +68,19 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
     })
   }
 
+  // Handle form submission
   const handleSubmit = async () => {
+    if (!title.trim()) {
+      toast.error("Quiz title is required")
+      return
+    }
+
+    if (questions.length === 0) {
+      toast.error("Add at least one question")
+      return
+    }
+
+    // Prepare payload
     const payload = {
       courseId,
       title,
@@ -75,26 +96,42 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
       requiredForCertificate: true,
     }
 
-    const res = await fetch("/api/quiz/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
+    // Frontend validation
+    const validation = quizValidationSchema.safeParse({ ...payload, course: courseId })
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      alert(err?.error || err?.message || "Failed to create quiz")
+    if (!validation.success) {
+     
+      toast.error("All feilds are must be required")
       return
     }
 
-    setTitle("")
-    setDescription("")
-    setTimeLimitMinutes("")
-    setAttemptLimit("")
-    setPassingScorePercent(60)
-    setPublished(false)
-    setQuestions([])
-   toast.success("Quiz created successfully!")
+    try {
+      const res = await fetch("/api/quiz/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err?.error || err?.message || "Failed to create quiz")
+        return
+      }
+
+      // Reset form
+      setTitle("")
+      setDescription("")
+      setTimeLimitMinutes("")
+      setAttemptLimit("")
+      setPassingScorePercent(60)
+      setPublished(false)
+      setQuestions([])
+
+      toast.success("Quiz created successfully!")
+    } catch (error) {
+      console.error("Submit error:", error)
+      toast.error("Server error while creating quiz")
+    }
   }
 
   return (
@@ -147,20 +184,11 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
           <div className="space-y-2">
             <Label>Published</Label>
             <div className="flex items-center gap-2 pt-2">
-              <input
-                type="checkbox"
-                checked={published}
-                onChange={(e) => setPublished(e.target.checked)}
-                className="h-4 w-4"
-              />
-              <span className="text-sm text-muted-foreground">
-                {published ? "Visible to students" : "Draft"}
-              </span>
+              <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="h-4 w-4" />
+              <span className="text-sm text-muted-foreground">{published ? "Visible to students" : "Draft"}</span>
             </div>
           </div>
         </div>
-
-        
 
         <div className="space-y-4">
           {questions.map((q, index) => (
@@ -170,13 +198,13 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Input
-                  value={q.prompt}
+                  value={q.questionText}
                   placeholder="Question prompt"
-                  onChange={(e) => updateQuestion(index, "prompt", e.target.value)}
+                  onChange={(e) => updateQuestion(index, "questionText", e.target.value)}
                 />
 
                 <div className="grid gap-2 md:grid-cols-2">
-                  {q.options.map((opt: string, i: number) => (
+                  {q.options.map((opt, i) => (
                     <Input
                       key={i}
                       value={opt}
@@ -191,10 +219,8 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
                     <Label>Correct option</Label>
                     <select
                       className="w-full border rounded-md h-10 px-3 bg-background"
-                      value={q.correctOptionIndex}
-                      onChange={(e) =>
-                        updateQuestion(index, "correctOptionIndex", Number(e.target.value) as 0 | 1 | 2 | 3)
-                      }
+                      value={q.correctAnswerIndex}
+                      onChange={(e) => updateQuestion(index, "correctAnswerIndex", Number(e.target.value) as 0 | 1 | 2 | 3)}
                     >
                       <option value={0}>Option 1</option>
                       <option value={1}>Option 2</option>
@@ -204,25 +230,18 @@ export default function TeacherQuizManager({ courseId }: { courseId: string }) {
                   </div>
                   <div className="space-y-2">
                     <Label>Points</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={q.points}
-                      onChange={(e) => updateQuestion(index, "points", Number(e.target.value))}
-                    />
+                    <Input type="number" min={0} value={q.points} onChange={(e) => updateQuestion(index, "points", Number(e.target.value))} />
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
         <div className="flex gap-2">
-          <Button type="button" variant="secondary" onClick={addQuestion}>
-            Add question
-          </Button>
-          <Button type="button" onClick={handleSubmit} disabled={!title || questions.length === 0}>
-            Save quiz
-          </Button>
+          <Button type="button" variant="secondary" onClick={addQuestion}>Add question</Button>
+          <Button type="button" variant="outline" onClick={cancelLastQuestion} disabled={questions.length === 0}>Cancel</Button>
+          <Button type="button" onClick={handleSubmit} disabled={!title || questions.length === 0}>Save quiz</Button>
         </div>
       </CardContent>
     </Card>

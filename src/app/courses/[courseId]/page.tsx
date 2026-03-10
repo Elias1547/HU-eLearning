@@ -865,23 +865,34 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
                 </div>
 
                 {/* Study Material Section */}
-                <StudyMaterialSection courseId={courseId} isTeacher={!!isTeacher} />
+                {session?.user?.role === "teacher"||isEnrolled ? (
+              <StudyMaterialSection courseId={courseId} isTeacher={!!isTeacher} />
+                ):  (
+                 <div className="flex items-center justify-center mt-10">
+                        <div className="max-w-md text-center border rounded-xl p-8 shadow-md bg-muted/30">
+                           <div className="text-5xl mb-4">📚</div>
+                              <h2 className="text-2xl font-semibold mb-2">
+                                  Enrollment Required
+                              </h2>
 
+                          <p className="text-muted-foreground mb-6">
+                            You need to enroll in this course to access study materials,
+                            quizzes, and assignments.
+                          </p>
+                          </div>
+                      </div>
+                      ) }              
                   {(isEnrolled || isTeacher || session?.user?.role === "admin") && (
                   <CourseQuizSection courseId={courseId} />
-                )}
+                )}                              
                
-                
-                {session?.user?.role === "student" && (
-                  <StudentAssignmentSection courseId={courseId} />
-                  
-                )}
                 {session?.user?.role === "teacher" && (
                   <AssignmentSection courseId={courseId} isTeacher={!!isTeacher} />
                 )}
-                {session?.user?.role === "student" && (
+                  {isEnrolled &&(
                   <StudentAssignmentSection courseId={courseId} />
                 )}
+              
               </TabsContent>
 
               <TabsContent value="instructor" className="space-y-6 pt-6">
@@ -986,12 +997,14 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
               </TabsContent>
             </Tabs>
           </div>
-
           {/* Sidebar */}
-          <div className="lg:col-span-1">
+         { session?.user?.role !== "teacher" && session?.user?.role !== "admin" && (
+            <div className="lg:col-span-1">
+          
             <div className="sticky top-24 space-y-6">
               {/* Enrollment Card */}
-              <Card>
+           
+                  <Card>
                 <CardContent className="p-6">
                   <EnrollmentSection
                     courseId={courseId}
@@ -1075,6 +1088,8 @@ export default async function CourseDetailPage(props: CourseDetailPageProps) {
               </Card>
             </div>
           </div>
+         )} 
+          
         </div>
       </div>
     </div>

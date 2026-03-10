@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import Countdown from "./countdown"
+import { Button } from "./ui/button"
 
 export default function StudentAssignmentSection({
   courseId,
@@ -22,6 +23,7 @@ export default function StudentAssignmentSection({
   useEffect(() => {
     fetchAssignments()
   }, [courseId])
+  
 
   // Upload to Cloudinary
   const uploadFileToCloud = async () => {
@@ -100,7 +102,7 @@ export default function StudentAssignmentSection({
           <p className="text-xs text-blue-600 mt-1">
             ⏳ {getCountdown(a.dueDate)}
           </p>
-
+     
           {/* Assignment File */}
           {a.fileUrl && (
             <a
@@ -138,13 +140,14 @@ export default function StudentAssignmentSection({
                 className="border p-2 w-full mb-2"
               />
 
-              <button
+              <Button
                 onClick={() => submitAssignment(a._id)}
                 disabled={uploading}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+                variant="secondary"
+             
               >
                 {uploading ? "Submitting..." : "Submit Assignment"}
-              </button>
+              </Button>
             </div>
           )}
         </div>
