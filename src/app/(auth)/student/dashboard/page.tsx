@@ -5,6 +5,8 @@ import { Student } from "@/models/student";
 import { Course } from "@/models/course";
 import { Review } from "@/models/review";
 import { RequestRefund } from "@/models/request-refund";
+import { LiveClass } from "@/models/live-class";
+import { CourseProgress } from "@/models/course-progress";
 import {
   Card,
   CardContent,
@@ -57,6 +59,27 @@ interface EnrolledCourseType {
   teacher?: TeacherType;
   duration?: string;
   price?: number;
+  createdAt?: Date;
+}
+
+interface ProgressDoc {
+  course: { toString(): string } | string;
+  percentageCompleted?: number;
+  totalWatchTimeSeconds?: number;
+  completedVideos?: Array<{ toString(): string } | string>;
+  lastAccessedVideo?: { toString(): string } | string;
+}
+
+interface LiveClassNotificationType {
+  _id: string;
+  courseId: string;
+  courseName: string;
+  title: string;
+  scheduledDate: Date;
+  status: "scheduled" | "live" | "ended" | "cancelled";
+  isLive: boolean;
+  meetingUrl: string;
+  joinUrl: string;
 }
 
 interface RefundRequestType {
@@ -109,10 +132,51 @@ export default async function StudentDashboard() {
     .populate("teacher", "name")
     .lean();
 
+  const progressDocs = (await CourseProgress.find({
+    student: student._id,
+    course: { $in: student.purchasedCourses || [] },
+  }).lean()) as ProgressDoc[];
+
+  const progressMap = new Map(
+    progressDocs.map((progress) => [
+      progress.course.toString(),
+      {
+        percentageCompleted: progress.percentageCompleted || 0,
+        totalWatchTimeSeconds: progress.totalWatchTimeSeconds || 0,
+        completedVideosCount: progress.completedVideos?.length || 0,
+        lastAccessedVideo: progress.lastAccessedVideo?.toString(),
+      },
+    ])
+  );
+
   // Fetch student's reviews
   const reviews: ReviewType[] = await Review.find({ student: student._id })
     .populate("course", "name")
     .lean();
+
+  const liveClassNotifications: LiveClassNotificationType[] = await LiveClass.find({
+    course: { $in: student.purchasedCourses || [] },
+    status: { $in: ["scheduled", "live"] },
+  })
+    .populate("course", "name title")
+    .sort({ scheduledDate: 1 })
+    .lean()
+    .then((liveClasses) =>
+      liveClasses
+        .map((liveClass) => ({
+          _id: liveClass._id.toString(),
+          courseId: liveClass.course?._id?.toString() || "",
+          courseName:
+            liveClass.course?.title || liveClass.course?.name || "Untitled Course",
+          title: liveClass.title,
+          scheduledDate: liveClass.scheduledDate,
+          status: liveClass.status,
+          isLive: liveClass.isLive,
+          meetingUrl: liveClass.meetingUrl,
+          joinUrl: `/live-stream/${liveClass._id.toString()}`,
+        }))
+        .filter((liveClass) => liveClass.courseId && liveClass.meetingUrl)
+    );
 
   // Fetch student's refund requests
   const refundRequests: RefundRequestType[] = await RequestRefund.find({
@@ -126,10 +190,15 @@ export default async function StudentDashboard() {
 
   // Calculate stats
   const totalCourses = enrolledCourses.length;
-  const completedCourses = 0; // Placeholder - would need progress tracking
+  const completedCourses = Array.from(progressMap.values()).filter(
+    (progress) => progress.percentageCompleted >= 100
+  ).length;
   const totalReviews = reviews.length;
   const pendingRefunds = refundRequests.filter(req => req.requestStatus === "pending").length;
   const acceptedRefunds = refundRequests.filter(req => req.requestStatus === "accepted").length;
+  const liveNowCount = liveClassNotifications.filter(
+    (liveClass) => liveClass.isLive || liveClass.status === "live"
+  ).length;
 
   const averageRating: number =
     reviews.length > 0
@@ -140,8 +209,10 @@ export default async function StudentDashboard() {
         ) / reviews.length
       : 0;
 
-  // Calculate estimated hours (placeholder calculation)
-  const estimatedHours = totalCourses * 10; // Assuming 10 hours per course
+  const estimatedHours = Array.from(progressMap.values()).reduce(
+    (sum, progress) => sum + progress.totalWatchTimeSeconds,
+    0
+  ) / 3600;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -267,8 +338,13 @@ export default async function StudentDashboard() {
               <Video className="h-8 w-8 mx-auto mb-2 text-primary" />
               <h3 className="font-medium">Live Classes</h3>
               <p className="text-sm text-muted-foreground">
-                Join live streaming sessions
+                Join Zoom live classes
               </p>
+              {liveNowCount > 0 && (
+                <Badge className="mt-3 bg-red-600 hover:bg-red-600">
+                  {liveNowCount} Live Now
+                </Badge>
+              )}
             </CardContent>
           </Card>
         </Link>
@@ -285,13 +361,13 @@ export default async function StudentDashboard() {
           </Card>
         </Link>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6 text-center">
-            <TrendingUp className="h-8 w-8 mx-auto mb-2 text-primary" />
-            <h3 className="font-medium">Progress Tracking</h3>
-            <p className="text-sm text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6 text-center">
+              <TrendingUp className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <h3 className="font-medium">Progress Tracking</h3>
+              <p className="text-sm text-muted-foreground">Live learning analytics</p>
+            </CardContent>
+          </Card>
       </div>
 
       {/* Refund Requests Section */}
@@ -443,8 +519,17 @@ export default async function StudentDashboard() {
         {enrolledCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {enrolledCourses.map((course: EnrolledCourseType) => {
-              // Calculate progress (placeholder - would need actual progress tracking)
-              const progress = Math.floor(Math.random() * 100);
+              const progress = progressMap.get(course._id.toString());
+              const percentage = Math.round(progress?.percentageCompleted || 0);
+              const courseLiveClasses = liveClassNotifications.filter(
+                (liveClass) => liveClass.courseId === course._id.toString()
+              );
+              const liveNowClass = courseLiveClasses.find(
+                (liveClass) => liveClass.isLive || liveClass.status === "live"
+              );
+              const upcomingClass = courseLiveClasses.find(
+                (liveClass) => liveClass.status === "scheduled"
+              );
 
               // Check if there's a refund request for this course
               const courseRefundRequest = refundRequests.find(
@@ -469,7 +554,7 @@ export default async function StudentDashboard() {
                       className="object-cover"
                     />
                     <div className="absolute top-2 right-2 bg-background/90 px-2 py-1 rounded text-xs font-medium">
-                      {progress}% Complete
+                      {percentage}% Complete
                     </div>
                     {courseRefundRequest && (
                       <div className="absolute top-2 left-2">
@@ -503,19 +588,71 @@ export default async function StudentDashboard() {
                   </CardHeader>
 
                   <CardContent className="pt-0">
+                    {(liveNowClass || upcomingClass) && (
+                      <div
+                        className={`mb-4 rounded-lg border p-3 ${
+                          liveNowClass
+                            ? "border-red-200 bg-red-50"
+                            : "border-blue-200 bg-blue-50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              {liveNowClass ? "Live class happening now" : "Upcoming live class"}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {(liveNowClass || upcomingClass)?.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(
+                                (liveNowClass || upcomingClass)!.scheduledDate
+                              ).toLocaleString()}
+                            </p>
+                          </div>
+                          <Badge
+                            className={
+                              liveNowClass
+                                ? "bg-red-600 hover:bg-red-600"
+                                : "bg-blue-600 hover:bg-blue-600"
+                            }
+                          >
+                            {liveNowClass ? "Live" : "Scheduled"}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                          {liveNowClass ? (
+                            <a href={liveNowClass.joinUrl} className="flex-1">
+                              <Button className="w-full bg-red-600 hover:bg-red-700">
+                                <Video className="h-4 w-4 mr-2" />
+                                Join Live
+                              </Button>
+                            </a>
+                          ) : (
+                            <Link href="/student/live-classes" className="flex-1">
+                              <Button variant="outline" className="w-full">
+                                <Calendar className="h-4 w-4 mr-2" />
+                                View Schedule
+                              </Button>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mb-4">
                       <div className="flex justify-between mb-2">
                         <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm font-medium">{progress}%</span>
+                        <span className="text-sm font-medium">{percentage}%</span>
                       </div>
-                      <Progress value={progress} className="h-2" />
+                      <Progress value={percentage} className="h-2" />
                     </div>
 
                     <div className="flex gap-2">
-                      <Link href={`/courses/${course._id}`} className="flex-1">
+                      <Link href={`/courses/${course._id}/learn`} className="flex-1">
                         <Button className="w-full">
                           <PlayCircle className="h-4 w-4 mr-2" />
-                          {progress > 0 ? "Continue" : "Start"}
+                          {percentage > 0 ? "Continue" : "Start"}
                         </Button>
                       </Link>
                       {!courseRefundRequest && course.price && course.price > 0 && (

@@ -48,7 +48,7 @@ import { dbConnect } from "@/lib/dbConnect"
 import { Course as CourseModel } from "@/models/course"
 import { Video as VideoModel } from "@/models/video"
 import { Student } from "@/models/student"
-import { CourseProgress } from "@/models/course-progress"
+import { getCourseProgressSnapshot } from "@/lib/course-progress"
 
 import LearnVideoClient from "@/components/video/learn-video-client"
 import type mongoose from "mongoose"
@@ -155,19 +155,15 @@ async function getVideoAndCourse(
       completedVideos: [] as string[],
       percentageCompleted: 0,
       totalVideos: videos.length,
-      currentVideoIndex: videos.findIndex((v: any) => v._id.toString() === videoId)
+      currentVideoIndex: videos.findIndex((v: any) => v._id.toString() === videoId),
+      lastAccessedVideo: undefined as string | undefined,
     };
 
     if (userId) {
-      const userProgress = await (CourseProgress as any).findOne({
-        student: userId,
-        course: courseId,
-      }).lean();
-
-      if (userProgress) {
-        progress.completedVideos = userProgress.completedVideos.map((id: any) => id.toString());
-        progress.percentageCompleted = userProgress.percentageCompleted;
-      }
+      const userProgress = await getCourseProgressSnapshot(userId, courseId);
+      progress.completedVideos = userProgress.completedVideos;
+      progress.percentageCompleted = userProgress.percentageCompleted;
+      progress.lastAccessedVideo = userProgress.lastAccessedVideo;
     }
 
     return {
@@ -248,44 +244,6 @@ async function checkEnrollmentStatus(
   }
 }
 
-async function updateProgress(
-  userId: string,
-  courseId: string,
-  videoId: string
-) {
-  await dbConnect();
-
-  try {
-    let progress = await (CourseProgress as any).findOne({
-      student: userId,
-      course: courseId,
-    });
-
-    if (!progress) {
-      progress = new CourseProgress({
-        student: userId,
-        course: courseId,
-        completedVideos: [],
-        percentageCompleted: 0,
-      });
-    }
-
-    if (!progress.completedVideos.includes(videoId)) {
-      progress.completedVideos.push(videoId);
-    }
-
-    const totalVideos = await VideoModel.countDocuments({ course: courseId });
-    progress.percentageCompleted =
-      (progress.completedVideos.length / totalVideos) * 100;
-
-    await progress.save();
-    return progress;
-  } catch (error) {
-    console.error("Error updating progress:", error);
-    return null;
-  }
-}
-
 // --- Main Page ---
 export default async function LearnPage(
    { params }: { params: Promise<{ courseId: string; videoId: string }> }
@@ -334,8 +292,6 @@ export default async function LearnPage(
   }
 
   const { currentVideo, videos, course, progress } = data;
-
-  await updateProgress(session.user.id, courseId, videoId);
 
   const currentIndex = videos.findIndex((v) => v._id === videoId);
   const prevVideo = currentIndex > 0 ? videos[currentIndex - 1] : null;
@@ -394,6 +350,8 @@ export default async function LearnPage(
                     src={currentVideo.url}
                     title={currentVideo.title}
                     poster={currentVideo.thumbnail}
+                    courseId={courseId}
+                    videoId={videoId}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white bg-muted">

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft,
   Eye,
@@ -20,6 +21,7 @@ import { dbConnect } from "@/lib/dbConnect";
 import { Course } from "@/models/course";
 import { Video as VideoModel } from "@/models/video";
 import { Student } from "@/models/student";
+import { CourseProgress } from "@/models/course-progress";
 import { VideoUploadModal } from "@/components/teacher/video-upload-modal";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
@@ -33,7 +35,7 @@ interface TeacherCourse {
   duration: string;
   imageUrl?: string;
   isPublished: boolean;
-  coupon?: string; // Assuming coupon is a string ID
+  coupon?: string;
   createdAt: string | Date;
   updatedAt: string | Date;
   teacher: string;
@@ -69,10 +71,29 @@ interface StudentWithStringId extends StudentData {
   _id: string;
 }
 
+interface StudentProgressSummary {
+  studentId: string;
+  percentageCompleted: number;
+  completedVideosCount: number;
+  totalWatchTimeSeconds: number;
+  started: boolean;
+  completed: boolean;
+}
+
+interface ProgressDoc {
+  student: { toString(): string } | string;
+  percentageCompleted?: number;
+  completedVideos?: Array<{ toString(): string } | string>;
+  totalWatchTimeSeconds?: number;
+}
+
 interface GetCourseWithDetailsResult {
   course: CourseWithStringId;
   videos: VideoWithStringId[];
   students: StudentWithStringId[];
+  studentProgressMap: Record<string, StudentProgressSummary>;
+  averageCompletionPercentage: number;
+  completedStudentsCount: number;
 }
 
 async function getCourseWithDetails(courseId: string, teacherId: string) {
@@ -96,6 +117,39 @@ async function getCourseWithDetails(courseId: string, teacherId: string) {
       _id: { $in: course.studentsPurchased || [] },
     }).lean<StudentData[]>();
 
+    const progressDocs = await CourseProgress.find({
+      course: courseId,
+      student: { $in: course.studentsPurchased || [] },
+    }).lean();
+
+    const studentProgressMap = Object.fromEntries(
+      (progressDocs as ProgressDoc[]).map((progress) => [
+        progress.student.toString(),
+        {
+          studentId: progress.student.toString(),
+          percentageCompleted: progress.percentageCompleted || 0,
+          completedVideosCount: progress.completedVideos?.length || 0,
+          totalWatchTimeSeconds: progress.totalWatchTimeSeconds || 0,
+          started:
+            (progress.percentageCompleted || 0) > 0 ||
+            (progress.totalWatchTimeSeconds || 0) > 0,
+          completed: (progress.percentageCompleted || 0) >= 100,
+        },
+      ])
+    ) as Record<string, StudentProgressSummary>;
+
+    const progressValues = Object.values(studentProgressMap);
+    const averageCompletionPercentage =
+      progressValues.length > 0
+        ? progressValues.reduce(
+            (sum, entry) => sum + entry.percentageCompleted,
+            0
+          ) / progressValues.length
+        : 0;
+    const completedStudentsCount = progressValues.filter(
+      (entry) => entry.completed
+    ).length;
+
     return {
       course: {
         ...course,
@@ -113,6 +167,9 @@ async function getCourseWithDetails(courseId: string, teacherId: string) {
           _id: student._id.toString(),
         })
       ),
+      studentProgressMap,
+      averageCompletionPercentage,
+      completedStudentsCount,
     } as GetCourseWithDetailsResult;
   } catch (error) {
     console.error("Error fetching course details:", error);
@@ -125,6 +182,7 @@ interface TeacherCoursePageProps {
     courseId: string;
   };
 }
+
 export default async function TeacherCoursePage({
   params,
 }: TeacherCoursePageProps) {
@@ -133,6 +191,7 @@ export default async function TeacherCoursePage({
   if (!session || !session.user || session.user.role !== "teacher") {
     redirect("/role");
   }
+
   const { courseId } = params;
   const data = await getCourseWithDetails(courseId, session.user.id);
 
@@ -140,7 +199,14 @@ export default async function TeacherCoursePage({
     notFound();
   }
 
-  const { course, videos, students } = data;
+  const {
+    course,
+    videos,
+    students,
+    studentProgressMap,
+    averageCompletionPercentage,
+    completedStudentsCount,
+  } = data;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -164,7 +230,7 @@ export default async function TeacherCoursePage({
                   {course.isPublished ? "Published" : "Draft"}
                 </Badge>
                 <Badge variant="outline">
-                  {course.price === 0 ? "Free" : `₹${course.price}`}
+                  {course.price === 0 ? "Free" : `INR ${course.price}`}
                 </Badge>
               </div>
             </div>
@@ -211,6 +277,29 @@ export default async function TeacherCoursePage({
                 </CardContent>
               </Card>
 
+              <Card>
+                <CardHeader>
+                  <CardTitle>Learning Progress Overview</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Average student completion
+                    </span>
+                    <span className="font-medium">
+                      {Math.round(averageCompletionPercentage)}%
+                    </span>
+                  </div>
+                  <Progress value={averageCompletionPercentage} className="h-2" />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Students who finished the course
+                    </span>
+                    <span className="font-medium">{completedStudentsCount}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
               {course.syllabus && (
                 <Card>
                   <CardHeader>
@@ -226,7 +315,6 @@ export default async function TeacherCoursePage({
             <TabsContent value="videos" className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Course Videos</h3>
-                {/* Upload button for teachers */}
                 <VideoUploadModal courseId={courseId} />
               </div>
 
@@ -255,7 +343,7 @@ export default async function TeacherCoursePage({
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Link href={`/course/${courseId}`}>
+                            <Link href={`/courses/${courseId}`}>
                               <Button variant="outline" size="sm">
                                 <PlayCircle className="h-4 w-4 mr-1" />
                                 Preview
@@ -282,10 +370,7 @@ export default async function TeacherCoursePage({
                     <p className="text-muted-foreground mb-4">
                       Start building your course by uploading your first video.
                     </p>
-                    <VideoUploadModal
-                      courseId={courseId}
-                      onSuccess={() => {}}
-                    />
+                    <VideoUploadModal courseId={courseId} onSuccess={() => {}} />
                   </CardContent>
                 </Card>
               )}
@@ -299,35 +384,61 @@ export default async function TeacherCoursePage({
 
               {students.length > 0 ? (
                 <div className="space-y-3">
-                  {students.map((student) => (
-                    <Card key={student._id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-primary/10 text-primary rounded-full w-10 h-10 flex items-center justify-center font-medium">
-                              {student.name.charAt(0)}
+                  {students.map((student) => {
+                    const progress = studentProgressMap[student._id];
+
+                    return (
+                      <Card key={student._id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-primary/10 text-primary rounded-full w-10 h-10 flex items-center justify-center font-medium">
+                                {student.name.charAt(0)}
+                              </div>
+                              <div>
+                                <h4 className="font-medium">{student.name}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {student.email}
+                                </p>
+                                <div className="mt-2 space-y-1">
+                                  <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>
+                                      {Math.round(progress?.percentageCompleted || 0)}%
+                                      {" "}complete
+                                    </span>
+                                    <span>
+                                      {progress?.completedVideosCount || 0} / {videos.length} videos
+                                    </span>
+                                  </div>
+                                  <Progress
+                                    value={progress?.percentageCompleted || 0}
+                                    className="h-2 w-56"
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="font-medium">{student.name}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {student.email}
-                              </p>
+                            <div className="flex gap-2">
+                              <Badge variant="outline">
+                                {progress?.completed
+                                  ? "Completed"
+                                  : progress?.started
+                                    ? "In Progress"
+                                    : "Not Started"}
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive"
+                              >
+                                <UserX className="h-4 w-4 mr-1" />
+                                Block
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-destructive"
-                            >
-                              <UserX className="h-4 w-4 mr-1" />
-                              Block
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : (
                 <Card>
@@ -414,11 +525,22 @@ export default async function TeacherCoursePage({
                 <span className="font-medium">{students.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Price</span>
+                <span className="text-sm text-muted-foreground">Avg Progress</span>
                 <span className="font-medium">
-                  {course.price === 0 ? "Free" : `₹${course.price}`}
+                  {Math.round(averageCompletionPercentage)}%
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Completions</span>
+                <span className="font-medium">{completedStudentsCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Price</span>
+                <span className="font-medium">
+                  {course.price === 0 ? "Free" : `INR ${course.price}`}
+                </span>
+              </div>
+              <Progress value={averageCompletionPercentage} className="h-2" />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
                 <Badge variant={course.isPublished ? "default" : "outline"}>
@@ -431,7 +553,6 @@ export default async function TeacherCoursePage({
                   {new Date(course.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              {/* Upload button for teachers in sidebar */}
               <div className="flex justify-center">
                 <VideoUploadModal courseId={courseId} onSuccess={() => {}} />
               </div>

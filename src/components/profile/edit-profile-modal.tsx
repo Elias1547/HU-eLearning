@@ -174,8 +174,12 @@ export function EditProfileModal({
         profileImage,
       };
 
-      // Use role-specific API endpoint
-      const apiEndpoint = `/api/${session?.user?.role}/profile`;
+      const userRole = session?.user?.role;
+      if (!userRole) {
+        throw new Error("Unable to determine your role. Please sign in again.");
+      }
+
+      const apiEndpoint = `/api/profile/${userRole}`;
 
       const response = await fetch(apiEndpoint, {
         method: "PUT",
@@ -187,7 +191,12 @@ export function EditProfileModal({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update profile");
+        const validationMessage = Array.isArray(errorData.errors)
+          ? errorData.errors.map((item: { message?: string }) => item.message).filter(Boolean)[0]
+          : null;
+        throw new Error(
+          validationMessage || errorData.message || "Failed to update profile"
+        );
       }
 
       const result = await response.json();
@@ -195,12 +204,9 @@ export function EditProfileModal({
       // Update session if name or email changed
       if (session?.user) {
         await updateSession({
-          ...session,
-          user: {
-            ...session.user,
-            name: result.user.name,
-            email: result.user.email,
-          },
+          name: result.user.name,
+          email: result.user.email,
+          image: result.user.profileImage || null,
         });
       }
 

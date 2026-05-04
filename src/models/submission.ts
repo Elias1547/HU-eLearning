@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose, { type Model } from "mongoose"
 
 const submissionSchema = new mongoose.Schema(
   {
@@ -21,6 +21,11 @@ const submissionSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
-export const Submission =
-  mongoose.models.Submission ||
-  mongoose.model("Submission", submissionSchema)
+export type SubmissionDoc = mongoose.InferSchemaType<typeof submissionSchema>
+
+const existingModel = (
+  mongoose.models as unknown as Record<string, Model<SubmissionDoc> | undefined>
+)["Submission"]
+
+export const Submission: Model<SubmissionDoc> =
+  existingModel ?? mongoose.model<SubmissionDoc>("Submission", submissionSchema)

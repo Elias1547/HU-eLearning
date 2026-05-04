@@ -1,7 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
+import { unstable_cache } from "next/cache";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -10,9 +9,8 @@ import {
   Award,
   Clock,
   Globe,
-  CheckCircle
+  CheckCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { FadeIn } from "@/components/animations/fade-in";
 import { SlideIn } from "@/components/animations/slide-in";
 import { ScaleIn } from "@/components/animations/scale-in";
@@ -20,9 +18,14 @@ import { StaggerChildren } from "@/components/animations/stagger-children";
 import { TextReveal } from "@/components/animations/text-reveal";
 import { FeaturedReviews } from "@/components/featured-reviews";
 import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
+import dbConnect from "@/lib/dbConnect";
+import { Course } from "@/models/course";
+import { Sale } from "@/models/sales";
 
 interface Teacher {
+  _id: string;
   name: string;
+  email?: string;
 }
 
 interface SaleData {
@@ -33,7 +36,7 @@ interface SaleData {
   notes?: string;
 }
 
-interface CourseType {
+interface FeaturedCourse {
   _id: string;
   name: string;
   description: string;
@@ -43,52 +46,110 @@ interface CourseType {
   sale?: SaleData | null;
 }
 
-export default function Home() {
-  const [featuredCourses, setFeaturedCourses] = useState<CourseType[]>([]);
-  const [loading, setLoading] = useState(true);
+interface CourseDocument {
+  _id: { toString(): string };
+  name: string;
+  description: string;
+  imageUrl?: string;
+  price: number;
+  teacher?: {
+    _id: { toString(): string };
+    name: string;
+    email?: string;
+  };
+}
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const response = await fetch("/api/courses?isPublished=true");
-        const data = await response.json();
-        const courses: CourseType[] = data.courses.slice(0, 3);
+interface SaleDocument {
+  _id: { toString(): string };
+  course: { toString(): string };
+  amount: number;
+  saleTime: Date | string;
+  expiryTime?: Date | string | null;
+  notes?: string;
+}
 
-        // Fetch active sale for each course
-        const coursesWithSales = await Promise.all(
-          courses.map(async (course) => {
-            try {
-              const saleRes = await fetch(`/api/courses/${course._id}/sales`);
-              if (!saleRes.ok) return { ...course, sale: null };
-              const saleData: { sales?: SaleData[] } = await saleRes.json();
-              const now = new Date();
-              const activeSale =
-                saleData.sales?.find(
-                  (sale) =>
-                    new Date(sale.saleTime) <= now &&
-                    (!sale.expiryTime || new Date(sale.expiryTime) >= now)
-                ) || null;
-              return { ...course, sale: activeSale };
-            } catch {
-              return { ...course, sale: null };
+function findActiveSale(
+  salesByCourse: Map<string, SaleDocument[]>,
+  courseId: string
+): SaleData | null {
+  const now = Date.now();
+  const sales = salesByCourse.get(courseId) ?? [];
+
+  for (const sale of sales) {
+    const saleStart = new Date(sale.saleTime).getTime();
+    const saleEnd = sale.expiryTime ? new Date(sale.expiryTime).getTime() : null;
+
+    if (saleStart <= now && (saleEnd === null || saleEnd >= now)) {
+      return {
+        _id: sale._id.toString(),
+        amount: sale.amount,
+        saleTime: new Date(sale.saleTime).toISOString(),
+        expiryTime: sale.expiryTime
+          ? new Date(sale.expiryTime).toISOString()
+          : undefined,
+        notes: sale.notes,
+      };
+    }
+  }
+
+  return null;
+}
+
+const getFeaturedCourses = unstable_cache(
+  async (): Promise<FeaturedCourse[]> => {
+    await dbConnect();
+
+    const courses = (await Course.find({ isPublished: true })
+      .populate("teacher", "name email")
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .lean()) as CourseDocument[];
+
+    const courseIds = courses.map((course) => course._id.toString());
+    const sales = courseIds.length
+      ? ((await Sale.find({ course: { $in: courseIds } })
+          .sort({ saleTime: -1 })
+          .lean()) as SaleDocument[])
+      : [];
+
+    const salesByCourse = new Map<string, SaleDocument[]>();
+    for (const sale of sales) {
+      const courseId = sale.course.toString();
+      const existingSales = salesByCourse.get(courseId) ?? [];
+      existingSales.push(sale);
+      salesByCourse.set(courseId, existingSales);
+    }
+
+    return courses.map((course) => {
+      const courseId = course._id.toString();
+
+      return {
+        _id: courseId,
+        name: course.name,
+        description: course.description,
+        imageUrl: course.imageUrl,
+        price: course.price,
+        teacher: course.teacher
+          ? {
+              _id: course.teacher._id.toString(),
+              name: course.teacher.name,
+              email: course.teacher.email,
             }
-          })
-        );
-        setFeaturedCourses(coursesWithSales);
-      } catch (error) {
-        console.error("Error fetching courses:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+          : undefined,
+        sale: findActiveSale(salesByCourse, courseId),
+      };
+    });
+  },
+  ["homepage-featured-courses"],
+  { revalidate: 300 }
+);
 
-    fetchCourses();
-  }, []);
+export default async function Home() {
+  const featuredCourses = await getFeaturedCourses();
 
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
-        {/* Hero Section */}
         <section className="relative py-20 bg-gradient-to-br from-background via-background/95 to-primary/5 dark:from-background dark:via-background/90 dark:to-primary/10">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.02] dark:opacity-[0.03]"></div>
           <div className="relative container mx-auto px-4 flex flex-col items-center justify-center gap-8 min-h-[70vh]">
@@ -116,20 +177,28 @@ export default function Home() {
               />
               <FadeIn delay={0.3}>
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                  Transform your career with thousands of expertly crafted courses. 
-                  Learn at your own pace with interactive content, live sessions, and 
-                  personalized learning paths tailored to your goals.
+                  Transform your career with thousands of expertly crafted
+                  courses. Learn at your own pace with interactive content, live
+                  sessions, and personalized learning paths tailored to your
+                  goals.
                 </p>
               </FadeIn>
               <FadeIn delay={0.5}>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/courses">
-                    <Button size="lg" className="gap-2 px-8 py-3 text-base font-medium hover:shadow-lg transition-all duration-200">
+                    <Button
+                      size="lg"
+                      className="gap-2 px-8 py-3 text-base font-medium hover:shadow-lg transition-all duration-200"
+                    >
                       Explore Courses <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
                   <Link href="/role">
-                    <Button size="lg" variant="outline" className="px-8 py-3 text-base font-medium hover:bg-primary/5 hover:border-primary/30">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="px-8 py-3 text-base font-medium hover:bg-primary/5 hover:border-primary/30"
+                    >
                       Start Free Trial
                     </Button>
                   </Link>
@@ -138,7 +207,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-        {/* Featured Categories */}
+
         <section className="py-20 bg-muted/30 dark:bg-muted/10">
           <div className="container mx-auto px-4">
             <FadeIn>
@@ -147,7 +216,8 @@ export default function Home() {
                   Popular Categories
                 </h2>
                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Discover courses across diverse fields and master skills that matter in today's world
+                  Discover courses across diverse fields and master skills that
+                  matter in today&apos;s world
                 </p>
               </div>
             </FadeIn>
@@ -157,21 +227,27 @@ export default function Home() {
                   <BookOpen className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="font-semibold text-lg mb-2">Web Development</h3>
-                <p className="text-sm text-muted-foreground">Build modern web applications</p>
+                <p className="text-sm text-muted-foreground">
+                  Build modern web applications
+                </p>
               </div>
               <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
                 <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
                   <Users className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="font-semibold text-lg mb-2">Business</h3>
-                <p className="text-sm text-muted-foreground">Master business strategies</p>
+                <p className="text-sm text-muted-foreground">
+                  Master business strategies
+                </p>
               </div>
               <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
                 <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
                   <Award className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="font-semibold text-lg mb-2">Design</h3>
-                <p className="text-sm text-muted-foreground">Create stunning visuals</p>
+                <p className="text-sm text-muted-foreground">
+                  Create stunning visuals
+                </p>
               </div>
               <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
                 <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
@@ -183,7 +259,7 @@ export default function Home() {
             </StaggerChildren>
           </div>
         </section>
-        {/* Why Choose Us */}
+
         <section className="py-20">
           <div className="container mx-auto px-4">
             <FadeIn>
@@ -192,7 +268,8 @@ export default function Home() {
                   Why Choose EduLearn?
                 </h2>
                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  We provide everything you need to succeed in your learning journey
+                  We provide everything you need to succeed in your learning
+                  journey
                 </p>
               </div>
             </FadeIn>
@@ -236,7 +313,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-        {/* Featured Courses */}
+
         <section className="py-16">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
@@ -252,29 +329,9 @@ export default function Home() {
               </FadeIn>
             </div>
 
-            {loading ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="border rounded-lg overflow-hidden bg-card animate-pulse"
-                  >
-                    <div className="aspect-video bg-muted" />
-                    <div className="p-4 space-y-3">
-                      <div className="h-6 bg-muted rounded" />
-                      <div className="h-4 bg-muted rounded w-3/4" />
-                      <div className="h-4 bg-muted rounded w-1/2" />
-                      <div className="flex justify-between items-center pt-2">
-                        <div className="h-5 bg-muted rounded w-1/4" />
-                        <div className="h-8 bg-muted rounded w-1/4" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : featuredCourses.length > 0 ? (
+            {featuredCourses.length > 0 ? (
               <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                {featuredCourses.map((course: CourseType) => (
+                {featuredCourses.map((course) => (
                   <div
                     key={course._id}
                     className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow flex flex-col"
@@ -283,14 +340,13 @@ export default function Home() {
                       <Image
                         src={
                           course.imageUrl ||
-                          "/placeholder.svg?height=200&width=400&text=Course" ||
-                          "/placeholder.svg"
+                          "/placeholder.svg?height=200&width=400&text=Course"
                         }
                         alt={course.name}
                         fill
                         className="object-cover"
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        priority
+                        priority={false}
                       />
                     </div>
                     <div className="p-4 flex flex-col flex-1">
@@ -323,7 +379,7 @@ export default function Home() {
                           ) : course.price === 0 ? (
                             "Free"
                           ) : (
-                            `₹${course.price}`
+                            `INR ${course.price}`
                           )}
                         </span>
                         <Link href={`/courses/${course._id}`}>
@@ -354,7 +410,7 @@ export default function Home() {
             )}
           </div>
         </section>
-        {/* Student Reviews */}
+
         <section className="py-16 bg-muted">
           <div className="container mx-auto px-4">
             <FadeIn>
@@ -365,7 +421,7 @@ export default function Home() {
             <FeaturedReviews />
           </div>
         </section>
-        {/* CTA Section */}
+
         <section className="py-20 bg-primary text-primary-foreground">
           <div className="container mx-auto px-4 text-center">
             <FadeIn>

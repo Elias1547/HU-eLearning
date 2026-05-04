@@ -1,3 +1,4 @@
+
 "use client"
 
 import type React from "react"
@@ -79,12 +80,8 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
  
 
    try {
-    console.log(
-  "Cloud Name:",
-  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  "Upload Preset:",
-  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-)
+
+
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
 
@@ -104,7 +101,7 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
   await new Promise<void>((resolve, reject) => {
     xhr.open(
       "POST",
-      `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
+     `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
     )
 
    // ✅ Use real progress
@@ -115,14 +112,14 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
     }
   };
 
-    xhr.onload = async () => {
+   xhr.onload = async () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         const data = JSON.parse(xhr.responseText)
 
         const videoUrl = data.secure_url
         const publicId = data.public_id
 
-        // 🔥 NOW send metadata to your backend (NO FILE)
+        // NOW send metadata to your backend (NO FILE)
         await fetch("/api/videos", {
           method: "POST",
           headers: {
@@ -159,7 +156,7 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
   toast.error("Failed to upload video")
 }}
 
-  return (
+return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2">
@@ -266,4 +263,3 @@ export function VideoUploadModal({ courseId, onSuccess }: VideoUploadModalProps)
       </DialogContent>
     </Dialog>
   )}
-

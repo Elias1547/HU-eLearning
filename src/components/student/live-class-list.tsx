@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Play, Users, Clock } from 'lucide-react'
+import { Play, Users, Clock, Video, Copy } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface LiveClass {
@@ -15,6 +15,11 @@ interface LiveClass {
   description?: string
   scheduledDate: string
   duration: number
+  platform: 'zoom'
+  meetingUrl: string
+  joinUrl: string
+  meetingId?: string
+  passcode?: string
   status: 'scheduled' | 'live' | 'ended' | 'cancelled'
   isLive: boolean
   attendees: string[]
@@ -47,14 +52,23 @@ export default function StudentLiveClassList() {
     }
   }
 
-  const joinLiveClass = (liveClassId: string) => {
-    // Navigate to the live stream viewer
-    window.open(`/live-stream/${liveClassId}`, '_blank')
+  const joinLiveClass = (joinUrl: string) => {
+    if (!joinUrl) {
+      toast.error("Zoom session is not available yet")
+      return
+    }
+
+    window.open(joinUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast.info("Zoom link copied to clipboard")
   }
 
   const getStatusBadge = (status: string, isLive: boolean) => {
     if (isLive) {
-      return <Badge variant="destructive" className="animate-pulse">🔴 LIVE</Badge>
+      return <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
     }
     
     const variants: Record<string, "secondary" | "destructive" | "outline"> = {
@@ -86,13 +100,13 @@ export default function StudentLiveClassList() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Live Classes</h1>
-        <p className="text-muted-foreground">Join live streaming sessions from your enrolled courses</p>
+        <p className="text-muted-foreground">Join Zoom sessions from your enrolled courses</p>
       </div>
 
       {/* Live Now Section */}
       {liveLiveClasses.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-4 text-red-600">🔴 Live Now</h2>
+          <h2 className="text-xl font-semibold mb-4 text-red-600">Live Now</h2>
           <div className="grid gap-4">
             {liveLiveClasses.map(liveClass => (
               <Card key={liveClass._id} className="border-red-200 bg-red-50">
@@ -104,16 +118,24 @@ export default function StudentLiveClassList() {
                         {getStatusBadge(liveClass.status, liveClass.isLive)}
                       </CardTitle>
                       <CardDescription>
-                        {liveClass.course.title} • {liveClass.teacher.name}
+                        {liveClass.course.title} - {liveClass.teacher.name}
                       </CardDescription>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1">
+                          <Video className="w-3.5 h-3.5" />
+                          Zoom
+                        </span>
+                        {liveClass.meetingId && <span>Meeting ID: {liveClass.meetingId}</span>}
+                        {liveClass.passcode && <span>Passcode: {liveClass.passcode}</span>}
+                      </div>
                     </div>
                     
-                    <Button 
-                      onClick={() => joinLiveClass(liveClass._id)}
+                    <Button
+                      onClick={() => joinLiveClass(liveClass.joinUrl)}
                       className="bg-red-600 hover:bg-red-700"
                     >
                       <Play className="w-4 h-4 mr-2" />
-                      Join Live
+                      Join on Zoom
                     </Button>
                   </div>
                 </CardHeader>
@@ -132,6 +154,14 @@ export default function StudentLiveClassList() {
                       <Clock className="w-4 h-4" />
                       {liveClass.duration} minutes
                     </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(liveClass.meetingUrl)}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Zoom Link
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -143,7 +173,7 @@ export default function StudentLiveClassList() {
       {/* Upcoming Section */}
       {upcomingLiveClasses.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">📅 Upcoming</h2>
+          <h2 className="text-xl font-semibold mb-4">Upcoming</h2>
           <div className="grid gap-4">
             {upcomingLiveClasses.map(liveClass => (
               <Card key={liveClass._id}>
@@ -155,8 +185,16 @@ export default function StudentLiveClassList() {
                         {getStatusBadge(liveClass.status, liveClass.isLive)}
                       </CardTitle>
                       <CardDescription>
-                        {liveClass.course.title} • {liveClass.teacher.name}
+                        {liveClass.course.title} - {liveClass.teacher.name}
                       </CardDescription>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
+                          <Video className="w-3.5 h-3.5" />
+                          Zoom
+                        </span>
+                        {liveClass.meetingId && <span>Meeting ID: {liveClass.meetingId}</span>}
+                        {liveClass.passcode && <span>Passcode: {liveClass.passcode}</span>}
+                      </div>
                     </div>
                     
                     <div className="text-right">
@@ -174,6 +212,11 @@ export default function StudentLiveClassList() {
                   {liveClass.description && (
                     <p className="text-sm text-muted-foreground mb-4">{liveClass.description}</p>
                   )}
+
+                  <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                    <p className="font-medium">Zoom link</p>
+                    <p className="break-all text-muted-foreground">{liveClass.meetingUrl}</p>
+                  </div>
                   
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
@@ -191,7 +234,7 @@ export default function StudentLiveClassList() {
       {/* Past Section */}
       {pastLiveClasses.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">📚 Past Classes</h2>
+          <h2 className="text-xl font-semibold mb-4">Past Classes</h2>
           <div className="grid gap-4">
             {pastLiveClasses.map(liveClass => (
               <Card key={liveClass._id} className="opacity-75">
@@ -203,8 +246,16 @@ export default function StudentLiveClassList() {
                         {getStatusBadge(liveClass.status, liveClass.isLive)}
                       </CardTitle>
                       <CardDescription>
-                        {liveClass.course.title} • {liveClass.teacher.name}
+                        {liveClass.course.title} - {liveClass.teacher.name}
                       </CardDescription>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
+                          <Video className="w-3.5 h-3.5" />
+                          Zoom
+                        </span>
+                        {liveClass.meetingId && <span>Meeting ID: {liveClass.meetingId}</span>}
+                        {liveClass.passcode && <span>Passcode: {liveClass.passcode}</span>}
+                      </div>
                     </div>
                     
                     <div className="text-right">

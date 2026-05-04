@@ -29,6 +29,7 @@ export async function GET() {
     // Serialize the courses data
     const serializedCourses = courses.map(course => ({
       _id: course._id.toString(),
+      title: course.name,
       name: course.name,
       description: course.description,
       price: course.price

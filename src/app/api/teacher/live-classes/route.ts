@@ -5,6 +5,8 @@ import { dbConnect } from "@/lib/dbConnect"
 import { LiveClass } from "@/models/live-class"
 import { Teacher } from "@/models/teacher"
 
+type SerializableId = { toString(): string }
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -24,32 +26,36 @@ export async function GET() {
     const liveClasses = await LiveClass.find({ 
       teacher: teacher._id 
     })
-      .populate('course', 'title description')
+      .populate('course', 'title name description')
       .sort({ scheduledDate: -1 })
       .lean()
 
     // Serialize the data to ensure all ObjectIds are strings
     const serializedLiveClasses = liveClasses.map(liveClass => ({
       _id: liveClass._id.toString(),
-      course: {
+      course: liveClass.course ? {
         _id: liveClass.course._id.toString(),
-        title: liveClass.course.title,
+        title: liveClass.course.title || liveClass.course.name || "Untitled Course",
         description: liveClass.course.description
-      },
+      } : null,
       teacher: liveClass.teacher.toString(),
       title: liveClass.title,
       description: liveClass.description,
       scheduledDate: liveClass.scheduledDate,
       duration: liveClass.duration,
+      platform: liveClass.platform || 'zoom',
+      meetingUrl: liveClass.meetingUrl,
+      joinUrl: `/live-stream/${liveClass._id.toString()}`,
+      meetingId: liveClass.meetingId,
+      passcode: liveClass.passcode,
       isLive: liveClass.isLive,
       status: liveClass.status,
-      streamId: liveClass.streamId,
-      attendees: liveClass.attendees?.map((id: any) => id.toString()) || [],
+      attendees: liveClass.attendees?.map((id: SerializableId) => id.toString()) || [],
       startedAt: liveClass.startedAt,
       endedAt: liveClass.endedAt,
       createdAt: liveClass.createdAt,
       updatedAt: liveClass.updatedAt
-    }))
+    })).filter(liveClass => liveClass.course)
 
     return NextResponse.json({ 
       liveClasses: serializedLiveClasses,

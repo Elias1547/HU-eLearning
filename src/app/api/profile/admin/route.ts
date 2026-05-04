@@ -32,7 +32,7 @@ export async function GET() {
 
 export async function PUT() {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })

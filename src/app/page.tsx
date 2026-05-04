@@ -1,10 +1,7 @@
-import Home from '@/components/HomePage'
-import React from 'react'
+import Home from "@/components/HomePage";
 
-const page = () => {
-  return (
-    <Home />
-  )
+export const revalidate = 300;
+
+export default function Page() {
+  return <Home />;
 }
-
-export default page

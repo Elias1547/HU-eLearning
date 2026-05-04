@@ -6,8 +6,6 @@ import { LiveClass, liveClassValidationSchema } from "@/models/live-class"
 import { Course } from "@/models/course"
 import { Student } from "@/models/student"
 import { Teacher } from "@/models/teacher"
-import { zenStreamService } from "@/lib/zenstream"
-import { videoStreamingService } from "@/lib/video-streaming"
 import { rateLimit } from "@/lib/utils"
 
 // Rate limiting configuration
@@ -16,13 +14,50 @@ const limiter = rateLimit({
   uniqueTokenPerInterval: 500,
 })
 
+type SerializableId = { toString(): string }
+
+type SerializedLiveClassInput = {
+  _id: SerializableId
+  course?: {
+    _id: SerializableId
+    title?: string
+    name?: string
+    description?: string
+    thumbnail?: string
+    price?: number
+  } | null
+  teacher?: {
+    _id: SerializableId
+    name: string
+    email: string
+    avatar?: string
+  } | null
+  title: string
+  description?: string
+  scheduledDate: Date
+  duration: number
+  platform?: "zoom"
+  meetingUrl: string
+  meetingId?: string
+  passcode?: string
+  isLive: boolean
+  status: string
+  attendees?: SerializableId[]
+  startedAt?: Date
+  endedAt?: Date
+  createdAt?: Date
+  updatedAt?: Date
+}
+
 // Helper function to serialize live class data
-function serializeLiveClass(liveClass: any) {
+function serializeLiveClass(liveClass: SerializedLiveClassInput) {
+  const liveClassId = liveClass._id.toString()
+
   return {
-    _id: liveClass._id.toString(),
+    _id: liveClassId,
     course: liveClass.course ? {
       _id: liveClass.course._id.toString(),
-      title: liveClass.course.title,
+      title: liveClass.course.title || liveClass.course.name || "Untitled Course",
       description: liveClass.course.description,
       thumbnail: liveClass.course.thumbnail,
       price: liveClass.course.price
@@ -37,20 +72,18 @@ function serializeLiveClass(liveClass: any) {
     description: liveClass.description,
     scheduledDate: liveClass.scheduledDate,
     duration: liveClass.duration,
+    platform: liveClass.platform || "zoom",
+    meetingUrl: liveClass.meetingUrl,
+    joinUrl: `/live-stream/${liveClassId}`,
+    meetingId: liveClass.meetingId,
+    passcode: liveClass.passcode,
     isLive: liveClass.isLive,
     status: liveClass.status,
-    streamId: liveClass.streamId,
-    attendees: liveClass.attendees?.map((id: any) => id.toString()) || [],
+    attendees: liveClass.attendees?.map((id: SerializableId) => id.toString()) || [],
     startedAt: liveClass.startedAt,
     endedAt: liveClass.endedAt,
     createdAt: liveClass.createdAt,
     updatedAt: liveClass.updatedAt,
-    analytics: {
-      totalViewers: liveClass.analytics?.totalViewers || 0,
-      peakViewers: liveClass.analytics?.peakViewers || 0,
-      averageWatchTime: liveClass.analytics?.averageWatchTime || 0,
-      chatMessages: liveClass.analytics?.chatMessages || 0
-    }
   }
 }
 
@@ -81,25 +114,6 @@ async function validateTeacherAccess(teacherId: string, liveClassId?: string) {
   return { teacher }
 }
 
-// Helper function to validate student enrollment
-async function validateStudentEnrollment(studentId: string, courseId: string) {
-  const student = await Student.findById(studentId).lean()
-  if (!student) {
-    throw new Error("Student not found")
-  }
-
-  if (student.isBlocked) {
-    throw new Error("Student account is blocked")
-  }
-
-  const isEnrolled = student.purchasedCourses?.includes(courseId)
-  if (!isEnrolled) {
-    throw new Error("You are not enrolled in this course")
-  }
-
-  return student
-}
-
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -120,7 +134,7 @@ export async function POST(request: NextRequest) {
     const validatedData = liveClassValidationSchema.parse(body)
 
     // Validate teacher access and existence
-    const { teacher } = await validateTeacherAccess(session.user.id)
+    await validateTeacherAccess(session.user.id)
 
     const course = await Course.findById(validatedData.course).lean()
     if (!course) {
@@ -146,39 +160,24 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
 
-    // Generate unique stream credentials for this live class
-    const streamCredentials = zenStreamService.generateStreamCredentials({
-      maxViewers: 100,
-      recordingEnabled: true,
-      chatEnabled: true,
-      adaptiveBitrate: true,
-      lowLatency: true
-    })
-
-    // Initialize analytics
-    const analytics = {
-      totalViewers: 0,
-      peakViewers: 0,
-      averageWatchTime: 0,
-      chatMessages: 0,
-      qualitySwitches: 0,
-      bufferingEvents: 0,
-      errors: 0
+    const meetingDetails = {
+      meetingUrl: validatedData.meetingUrl.trim(),
+      meetingId: validatedData.meetingId?.trim() || undefined,
+      passcode: validatedData.passcode?.trim() || undefined,
     }
 
     const liveClass = new LiveClass({
       ...validatedData,
       teacher: session.user.id,
-      streamId: streamCredentials.streamId,
-      streamKey: streamCredentials.streamKey,
-      chatSecret: streamCredentials.chatSecret,
-      analytics
+      meetingUrl: meetingDetails.meetingUrl,
+      meetingId: meetingDetails.meetingId,
+      passcode: meetingDetails.passcode,
     })
 
     await liveClass.save()
 
     const populatedLiveClass = await LiveClass.findById(liveClass._id)
-      .populate('course', 'title description thumbnail price')
+      .populate('course', 'title name description thumbnail price')
       .populate('teacher', 'name email avatar')
       .lean()
 
@@ -278,7 +277,7 @@ export async function GET(request: NextRequest) {
     const total = await LiveClass.countDocuments(query)
 
     const liveClasses = await LiveClass.find(query)
-      .populate('course', 'title description thumbnail price')
+      .populate('course', 'title name description thumbnail price')
       .populate('teacher', 'name email avatar')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .skip(skip)
@@ -370,7 +369,7 @@ export async function PUT(request: NextRequest) {
       { ...updateData, updatedAt: new Date() },
       { new: true }
     )
-      .populate('course', 'title description thumbnail price')
+      .populate('course', 'title name description thumbnail price')
       .populate('teacher', 'name email avatar')
       .lean()
 

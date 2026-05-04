@@ -161,23 +161,6 @@ async function getAllCourses(
   }
 }
 
-// Fetch enrollment count for a course
-async function getEnrollmentCount(courseId: string) {
-  await dbConnect();
-  try {
-    const course = (await Course.findById(
-      courseId
-    ).lean()) as CourseType | null;
-    return course ? course.studentsPurchased?.length || 0 : 0;
-  } catch (error) {
-    console.error(
-      `Error getting enrollment count for course ${courseId}:`,
-      error
-    );
-    return 0;
-  }
-}
-
 // Fetch all active sales for a set of course IDs
 async function getActiveSales(courseIds: string[]) {
   await dbConnect();
@@ -214,19 +197,15 @@ export default async function AllCoursesPage({
   // Fetch courses
   const courses = await getAllCourses(searchQuery, sortBy, sortOrder);
 
-  // Fetch enrollment counts and sales for each course
+  // Fetch sales in one query and derive enrollment counts from already-loaded data.
   const courseIds = courses.map((c: CourseType) => c._id);
   const sales = await getActiveSales(courseIds);
 
-  const coursesWithEnrollment: CourseWithEnrollment[] = await Promise.all(
-    courses.map(async (course: CourseMapped): Promise<CourseWithEnrollment> => {
-      const enrollmentCount: number = await getEnrollmentCount(course._id);
-      const sale = getSaleForCourse(sales, course._id);
-      return {
-        ...course,
-        enrollmentCount,
-        sale,
-      };
+  const coursesWithEnrollment: CourseWithEnrollment[] = courses.map(
+    (course: CourseMapped): CourseWithEnrollment => ({
+      ...course,
+      enrollmentCount: course.studentsPurchased.length,
+      sale: getSaleForCourse(sales, course._id),
     })
   );
 

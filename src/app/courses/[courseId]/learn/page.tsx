@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { use, useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -90,15 +90,15 @@ interface CourseProgress {
 }
 
 interface CourseLearnPageProps {
-  params: {
+  params: Promise<{
     courseId: string
-  }
+  }>
 }
 
 export default function CourseLearnPage({ params }: CourseLearnPageProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { courseId } = params
+  const { courseId } = use(params)
 
   const [course, setCourse] = useState<Course | null>(null)
   const [progress, setProgress] = useState<CourseProgress | null>(null)
@@ -127,7 +127,39 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
         throw new Error('Failed to fetch course data')
       }
       const courseData = await courseResponse.json()
-      setCourse(courseData)
+      const normalizedCourse: Course = {
+        _id: courseData._id,
+        name: courseData.name,
+        description: courseData.description,
+        thumbnail: courseData.imageUrl,
+        instructor: {
+          name: courseData.teacher?.name || 'Unknown Instructor',
+          avatar: courseData.teacher?.avatar,
+          bio: courseData.teacher?.bio,
+        },
+        level: courseData.level || 'beginner',
+        category: courseData.category || 'General',
+        duration: courseData.duration || 'Self-paced',
+        studentsCount: Array.isArray(courseData.studentsPurchased)
+          ? courseData.studentsPurchased.length
+          : 0,
+        rating: courseData.averageRating || 0,
+        price: courseData.price || 0,
+        videos: Array.isArray(courseData.videos)
+          ? courseData.videos.map((video: Video) => ({
+              ...video,
+              duration: video.duration || 'Unknown duration',
+            }))
+          : [],
+        skills: Array.isArray(courseData.skills) ? courseData.skills : [],
+        requirements: Array.isArray(courseData.requirements)
+          ? courseData.requirements
+          : [],
+        learningOutcomes: Array.isArray(courseData.learningOutcomes)
+          ? courseData.learningOutcomes
+          : [],
+      }
+      setCourse(normalizedCourse)
 
       // Fetch progress data
       const progressResponse = await fetch(`/api/student/progress/${courseId}`)

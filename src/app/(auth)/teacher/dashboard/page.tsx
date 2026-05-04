@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, BarChart3, RefreshCw, Video } from "lucide-react";
+import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, BarChart3, Video } from "lucide-react";
 import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
 import React from "react";
 import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
 import RefundRequestsSection from "@/components/teacher/refund-requests-section";
+import { getTeacherCourseProgressAnalytics } from "@/lib/course-progress";
+import { Progress } from "@/components/ui/progress";
 
 // Sale interface (separate)
 interface SaleData {
@@ -106,6 +108,54 @@ interface IRefundRequest {
   updatedAt: Date;
 }
 
+interface RawCourseDoc extends ICourse {
+  teacher: { toString(): string } | string;
+  studentsPurchased?: Array<{ toString(): string } | string>;
+}
+
+interface RawReviewDoc {
+  _id: { toString(): string };
+  rating: number;
+  comment: string;
+  createdAt: string | Date;
+  student?: {
+    _id: { toString(): string };
+    name: string;
+  };
+  course?: {
+    _id: { toString(): string };
+    name: string;
+  };
+}
+
+interface RawRefundRequestDoc {
+  _id: { toString(): string };
+  courseId: {
+    _id: { toString(): string };
+    name: string;
+    price: number;
+  };
+  studentId: {
+    _id: { toString(): string };
+    name: string;
+    email: string;
+  };
+  amount: number;
+  reason?: string;
+  notes?: string;
+  refundReasonCategory: "duplicate" | "not_as_described" | "other";
+  requestStatus: "pending" | "accepted" | "rejected";
+  processedBy?: {
+    _id: { toString(): string };
+    name: string;
+    email: string;
+  } | null;
+  attachments?: string[];
+  requestedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export default async function TeacherDashboard() {
   const session = await getServerSession(authOptions);
 
@@ -134,14 +184,15 @@ export default async function TeacherDashboard() {
   }).lean();
 
   // Serialize courses to ensure all ObjectIds are converted to strings
-  const courses: ICourse[] = coursesRaw.map((course: any) => ({
+  const courses: ICourse[] = (coursesRaw as RawCourseDoc[]).map((course) => ({
     ...course,
     _id: course._id.toString(),
     teacher: course.teacher.toString(),
-    studentsPurchased: course.studentsPurchased?.map((id: any) => id.toString()) || [],
+    studentsPurchased: course.studentsPurchased?.map((id) => id.toString()) || [],
   }));
 
   const courseIds: string[] = courses.map((course) => course._id);
+  const courseProgressAnalytics = await getTeacherCourseProgressAnalytics(courseIds);
 
   // Count total students across all courses
   const totalStudents = await Student.countDocuments({
@@ -157,17 +208,21 @@ export default async function TeacherDashboard() {
     .lean();
 
   // Serialize reviews to ensure all ObjectIds are converted to strings
-  const reviews: IReview[] = reviewsRaw.map((review: any) => ({
+  const reviews: IReview[] = (reviewsRaw as RawReviewDoc[]).map((review) => ({
     ...review,
     _id: review._id.toString(),
-    student: {
-      ...review.student,
-      _id: review.student._id.toString(),
-    },
-    course: {
-      ...review.course,
-      _id: review.course._id.toString(),
-    },
+    student: review.student
+      ? {
+          ...review.student,
+          _id: review.student._id.toString(),
+        }
+      : undefined,
+    course: review.course
+      ? {
+          ...review.course,
+          _id: review.course._id.toString(),
+        }
+      : undefined,
   }));
 
   // Fetch refund requests for teacher's courses
@@ -181,7 +236,7 @@ export default async function TeacherDashboard() {
     .lean();
 
   // Serialize refund requests to ensure all ObjectIds are converted to strings
-  const refundRequests: IRefundRequest[] = refundRequestsRaw.map((request: any) => ({
+  const refundRequests: IRefundRequest[] = (refundRequestsRaw as RawRefundRequestDoc[]).map((request) => ({
     ...request,
     _id: request._id.toString(),
     courseId: {
@@ -192,10 +247,12 @@ export default async function TeacherDashboard() {
       ...request.studentId,
       _id: request.studentId._id.toString(),
     },
-    processedBy: request.processedBy ? {
-      ...request.processedBy,
-      _id: request.processedBy._id.toString(),
-    } : null,
+    processedBy: request.processedBy
+      ? {
+          ...request.processedBy,
+          _id: request.processedBy._id.toString(),
+        }
+      : undefined,
   }));
 
   // Calculate average rating
@@ -212,6 +269,17 @@ export default async function TeacherDashboard() {
 
   // Get published courses count
   const publishedCourses = courses.filter((course) => course.isPublished).length;
+  const overallAverageCompletion =
+    courseIds.length > 0
+      ? courseIds.reduce((sum, courseId) => {
+          const analytics = courseProgressAnalytics.get(courseId);
+          return sum + (analytics?.averageCompletionPercentage || 0);
+        }, 0) / courseIds.length
+      : 0;
+  const totalCompletedStudents = courseIds.reduce((sum, courseId) => {
+    const analytics = courseProgressAnalytics.get(courseId);
+    return sum + (analytics?.completedStudents || 0);
+  }, 0);
 
   // Get pending refund requests count
   const pendingRefunds = refundRequests.filter((req) => req.requestStatus === "pending").length;
@@ -337,14 +405,16 @@ export default async function TeacherDashboard() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Refunds</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Average Completion</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
-              <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
-              <span className="text-2xl font-bold">{pendingRefunds}</span>
+              <BarChart3 className="mr-2 h-4 w-4 text-orange-600" />
+              <span className="text-2xl font-bold">{overallAverageCompletion.toFixed(0)}%</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {totalCompletedStudents} student completions
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -433,6 +503,7 @@ export default async function TeacherDashboard() {
                 courseReviews.length > 0
                   ? courseReviews.reduce((sum: number, review: IReview) => sum + review.rating, 0) / courseReviews.length
                   : 0;
+              const progressAnalytics = courseProgressAnalytics.get(course._id.toString());
 
               // Sale logic
               const sale = sales[course._id.toString()];
@@ -488,6 +559,23 @@ export default async function TeacherDashboard() {
                         ) : (
                           course.price === 0 ? "Free" : `₹${course.price}`
                         )}
+                      </div>
+                    </div>
+
+                    <div className="mb-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Learning progress</span>
+                        <span className="font-medium">
+                          {Math.round(progressAnalytics?.averageCompletionPercentage || 0)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={progressAnalytics?.averageCompletionPercentage || 0}
+                        className="h-2"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{progressAnalytics?.startedStudents || 0} started</span>
+                        <span>{progressAnalytics?.completedStudents || 0} completed</span>
                       </div>
                     </div>
 

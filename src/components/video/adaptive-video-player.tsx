@@ -21,6 +21,7 @@ interface AdaptiveVideoPlayerProps {
   controls?: boolean
   onTimeUpdate?: (currentTime: number) => void
   onDurationChange?: (duration: number) => void
+  onEnded?: () => void
 }
 
 export default function AdaptiveVideoPlayer({
@@ -31,7 +32,8 @@ export default function AdaptiveVideoPlayer({
   autoPlay = false,
   controls = true,
   onTimeUpdate,
-  onDurationChange
+  onDurationChange,
+  onEnded
 }: AdaptiveVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -69,6 +71,13 @@ export default function AdaptiveVideoPlayer({
       hlsRef.current = hls
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        const qualityLevels = hls.levels.map((level, index) => ({
+          level: index,
+          height: level.height,
+          bitrate: level.bitrate,
+          name: level.height ? `${level.height}p` : `Level ${index + 1}`,
+        }))
+        setAvailableQualities(qualityLevels)
         setLoading(false)
         if (autoPlay) video.play().catch(console.error)
       })
@@ -116,6 +125,10 @@ export default function AdaptiveVideoPlayer({
 
     const handlePlay = () => setIsPlaying(true)
     const handlePause = () => setIsPlaying(false)
+    const handleEnded = () => {
+      setIsPlaying(false)
+      onEnded?.()
+    }
     const handleVolumeChange = () => {
       setVolume(video.volume)
       setIsMuted(video.muted)
@@ -125,6 +138,7 @@ export default function AdaptiveVideoPlayer({
     video.addEventListener('durationchange', updateDuration)
     video.addEventListener('play', handlePlay)
     video.addEventListener('pause', handlePause)
+    video.addEventListener('ended', handleEnded)
     video.addEventListener('volumechange', handleVolumeChange)
 
     return () => {
@@ -132,9 +146,22 @@ export default function AdaptiveVideoPlayer({
       video.removeEventListener('durationchange', updateDuration)
       video.removeEventListener('play', handlePlay)
       video.removeEventListener('pause', handlePause)
+      video.removeEventListener('ended', handleEnded)
       video.removeEventListener('volumechange', handleVolumeChange)
     }
-  }, [onTimeUpdate, onDurationChange])
+  }, [onTimeUpdate, onDurationChange, onEnded])
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      const video = videoRef.current
+      setIsFullscreen(document.fullscreenElement === video)
+    }
+
+    document.addEventListener("fullscreenchange", syncFullscreen)
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen)
+    }
+  }, [])
 
   const togglePlay = () => {
     const video = videoRef.current

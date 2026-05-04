@@ -35,18 +35,12 @@ export async function GET(
       }
     } else if (session.user.role === "student") {
       const student = await Student.findOne({ email: session.user.email })
-      if (!student || !student.enrolledCourses.includes(liveClass.course._id)) {
+      if (!student || !student.purchasedCourses.includes(liveClass.course._id)) {
         return NextResponse.json({ error: "You are not enrolled in this course" }, { status: 403 })
       }
     }
 
-    // Don't expose sensitive stream credentials to students
-    const response = liveClass.toObject()
-    if (session.user.role === "student") {
-      delete response.streamKey
-    }
-
-    return NextResponse.json({ liveClass: response })
+    return NextResponse.json({ liveClass })
 
   } catch (error) {
     console.error("Error fetching live class:", error)

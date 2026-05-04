@@ -5,6 +5,8 @@ import { dbConnect } from "@/lib/dbConnect"
 import { LiveClass } from "@/models/live-class"
 import { Student } from "@/models/student"
 
+type SerializableId = { toString(): string }
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -35,7 +37,7 @@ export async function GET() {
       course: { $in: purchasedCourses },
       status: { $ne: 'cancelled' }
     })
-      .populate('course', 'title description')
+      .populate('course', 'title name description')
       .populate('teacher', 'name email')
       .sort({ scheduledDate: -1 })
       .lean()
@@ -43,28 +45,33 @@ export async function GET() {
     // Serialize the data
     const serializedLiveClasses = liveClasses.map(liveClass => ({
       _id: liveClass._id.toString(),
-      course: {
+      course: liveClass.course ? {
         _id: liveClass.course._id.toString(),
-        title: liveClass.course.title,
+        title: liveClass.course.title || liveClass.course.name || "Untitled Course",
         description: liveClass.course.description
-      },
-      teacher: {
+      } : null,
+      teacher: liveClass.teacher ? {
         _id: liveClass.teacher._id.toString(),
         name: liveClass.teacher.name,
         email: liveClass.teacher.email
-      },
+      } : null,
       title: liveClass.title,
       description: liveClass.description,
       scheduledDate: liveClass.scheduledDate,
       duration: liveClass.duration,
+      platform: liveClass.platform || 'zoom',
+      meetingUrl: liveClass.meetingUrl,
+      joinUrl: `/live-stream/${liveClass._id.toString()}`,
+      meetingId: liveClass.meetingId,
+      passcode: liveClass.passcode,
       isLive: liveClass.isLive,
       status: liveClass.status,
-      attendees: liveClass.attendees?.map((id: any) => id.toString()) || [],
+      attendees: liveClass.attendees?.map((id: SerializableId) => id.toString()) || [],
       startedAt: liveClass.startedAt,
       endedAt: liveClass.endedAt,
       createdAt: liveClass.createdAt,
       updatedAt: liveClass.updatedAt
-    }))
+    })).filter(liveClass => liveClass.course && liveClass.teacher)
 
     return NextResponse.json({ 
       liveClasses: serializedLiveClasses,

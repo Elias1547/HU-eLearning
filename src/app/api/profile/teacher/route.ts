@@ -5,6 +5,15 @@ import { Teacher } from "@/models/teacher"
 import { z } from "zod"
 import { authOptions } from "@/lib/auth"
 
+const profileImageSchema = z
+  .string()
+  .refine(
+    (value) => value === "" || value.startsWith("/") || /^https?:\/\//.test(value),
+    "Profile image must be a valid URL or uploaded image path"
+  )
+  .optional()
+  .or(z.literal(""))
+
 // Validation schema
 const updateProfileSchema = z.object({
   name: z
@@ -21,7 +30,7 @@ const updateProfileSchema = z.object({
     .optional()
     .or(z.literal("")),
   website: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
-  profileImage: z.string().url().optional().or(z.literal("")),
+  profileImage: profileImageSchema,
 })
 
 export async function GET() {
@@ -61,7 +70,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session?.user || session.user.role !== "teacher") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })

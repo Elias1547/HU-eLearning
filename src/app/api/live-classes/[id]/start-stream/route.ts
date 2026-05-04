@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth"
 import { dbConnect } from "@/lib/dbConnect"
 import { LiveClass } from "@/models/live-class"
 import { Teacher } from "@/models/teacher"
-import { videoStreamingService } from "@/lib/video-streaming"
 import { rateLimit } from "@/lib/utils"
 
 // Rate limiting configuration
@@ -13,22 +12,8 @@ const limiter = rateLimit({
   uniqueTokenPerInterval: 10,
 })
 
-interface StartStreamRequest {
-  inputUrl?: string
-  quality?: 'low' | 'medium' | 'high' | 'adaptive' | 'ultra'
-  bitrate?: number
-  resolution?: string
-  framerate?: number
-  recordingEnabled?: boolean
-  lowLatency?: boolean
-}
-
 interface StartStreamResponse {
-  streamId: string
-  streamKey: string
-  rtmpUrl: string
-  hlsUrl: string
-  webRtcUrl?: string
+  meetingUrl?: string
   status: string
   message: string
 }
@@ -61,14 +46,6 @@ async function validateTeacherAccess(teacherId: string, liveClassId: string) {
     throw new Error("You can only start your own live classes")
   }
 
-  if (liveClass.isLive) {
-    throw new Error("Live class is already active")
-  }
-
-  if (liveClass.status === 'ended' || liveClass.status === 'cancelled') {
-    throw new Error("Cannot start an ended or cancelled live class")
-  }
-
   return { teacher, liveClass }
 }
 
@@ -92,73 +69,15 @@ export async function POST(
     await dbConnect()
 
     // Validate teacher access
-    const { teacher, liveClass } = await validateTeacherAccess(session.user.id, params.id)
+    const { liveClass } = await validateTeacherAccess(session.user.id, params.id)
 
-    const body: StartStreamRequest = await request.json()
-    const {
-      inputUrl = 'rtmp://localhost/live',
-      quality = 'adaptive',
-      bitrate,
-      resolution,
-      framerate = 30,
-      recordingEnabled = true,
-      lowLatency = true
-    } = body
-
-    // Check if stream is already running
-    const existingStream = videoStreamingService.getStreamInfo(liveClass.streamId)
-    if (existingStream && existingStream.status === 'live') {
-      return NextResponse.json({ 
-        error: "Stream is already active",
-        streamInfo: existingStream
-      }, { status: 409 })
+    if (liveClass.isLive) {
+      return NextResponse.json({ error: "Live class is already active" }, { status: 409 })
     }
 
-    // Start the stream
-    const streamConfig = {
-      inputUrl,
-      outputPath: `./public/streams/${liveClass.streamId}`,
-      streamKey: liveClass.streamKey,
-      quality,
-      bitrate: bitrate || (quality === 'ultra' ? 5000 : quality === 'high' ? 2500 : quality === 'medium' ? 1000 : 500),
-      resolution: resolution || (quality === 'ultra' ? '2560:1440' : quality === 'high' ? '1920:1080' : quality === 'medium' ? '1280:720' : '640:360'),
-      framerate,
-      audioBitrate: 128,
-      audioChannels: 2,
-      audioSampleRate: 44100
+    if (liveClass.status === 'ended' || liveClass.status === 'cancelled') {
+      return NextResponse.json({ error: "Cannot start an ended or cancelled live class" }, { status: 400 })
     }
-
-    const streamOptions = {
-      hlsConfig: {
-        segmentDuration: 4,
-        playlistLength: 6,
-        targetDuration: 4,
-        maxSegmentDuration: 6,
-        lowLatency: true,
-        enableDateRange: true,
-        enableEmsg: true,
-        enableID3: true
-      },
-      webRtcConfig: {
-        enabled: true,
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ],
-        maxBitrate: 2500,
-        enableSimulcast: true,
-        enableSvc: false
-      },
-      recordingConfig: {
-        enabled: recordingEnabled,
-        format: 'mp4' as const,
-        quality: 'high' as const,
-        includeAudio: true,
-        maxDuration: 4 * 60 * 60 // 4 hours
-      }
-    }
-
-    const streamInfo = await videoStreamingService.startStream(streamConfig, streamOptions)
 
     // Update live class status
     await LiveClass.findByIdAndUpdate(params.id, {
@@ -169,13 +88,9 @@ export async function POST(
     })
 
     const response: StartStreamResponse = {
-      streamId: streamInfo.streamId,
-      streamKey: streamInfo.streamKey,
-      rtmpUrl: streamInfo.rtmpUrl,
-      hlsUrl: streamInfo.hlsUrl,
-      webRtcUrl: streamInfo.webRtcUrl,
-      status: streamInfo.status,
-      message: "Stream started successfully"
+      meetingUrl: typeof liveClass.meetingUrl === "string" ? liveClass.meetingUrl : undefined,
+      status: "live",
+      message: "Live class started successfully"
     }
 
     return NextResponse.json(response)
@@ -218,10 +133,11 @@ export async function DELETE(
     await dbConnect()
 
     // Validate teacher access
-    const { teacher, liveClass } = await validateTeacherAccess(session.user.id, params.id)
+    const { liveClass } = await validateTeacherAccess(session.user.id, params.id)
 
-    // Stop the stream
-    await videoStreamingService.stopStream(liveClass.streamId)
+    if (!liveClass.isLive && liveClass.status !== 'live') {
+      return NextResponse.json({ error: "Live class is not currently active" }, { status: 400 })
+    }
 
     // Update live class status
     await LiveClass.findByIdAndUpdate(params.id, {
@@ -232,8 +148,7 @@ export async function DELETE(
     })
 
     return NextResponse.json({
-      message: "Stream stopped successfully",
-      streamId: liveClass.streamId
+      message: "Live class ended successfully"
     })
 
   } catch (error) {
