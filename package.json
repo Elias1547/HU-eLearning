@@ -1,5 +1,5 @@
 {
-  "name": "hu-elearning-frontend",
+  "name": "LMS 4 DC",
   "version": "3.0.0",
   "private": true,
   "scripts": {
@@ -52,7 +52,7 @@
     "next-themes": "^0.4.6",
     "path": "^0.12.7",
     "qrcode": "^1.5.4",
-    "razorpay": "^2.9.6",
+    
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
