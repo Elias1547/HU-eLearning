@@ -22,6 +22,7 @@ export function StudyMaterialSection({
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting , setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch study materials for the course
@@ -30,6 +31,29 @@ export function StudyMaterialSection({
       .then((data) => setMaterials(data.files || []));
 
   }, [courseId]);
+  const handleDelete= async( material: StudyMaterial) => {
+     try {
+          setDeleting(material.name);
+          const res = await fetch(
+            `/api/courses/${courseId}/study-material/${encodeURIComponent(
+              material.name
+            )}`,
+            { method: "DELETE" }
+          );
+
+          if (!res.ok) throw new Error("Failed to delete file");
+
+          setMaterials((prev) =>
+            prev.filter((m) => m.name !== material.name)
+          );
+          toast.success("File deleted successfully");
+          
+        } catch {
+          toast.error("Failed to delete file");
+        }
+
+ setDeleting(null);
+  }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,29 +124,14 @@ export function StudyMaterialSection({
            
              {isTeacher && (
                   <Button
-                    variant="secondary"
+                    variant="destructive"
                     size="sm"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(
-                          `/api/courses/${courseId}/study-material/${encodeURIComponent(
-                            material.name
-                          )}`,
-                          { method: "DELETE" }
-                        );
-
-                        if (!res.ok) throw new Error("Failed to delete file");
-
-                        setMaterials((prev) =>
-                          prev.filter((m) => m.name !== material.name)
-                        );
-                        toast.success("File deleted successfully");
-                      } catch {
-                        toast.error("Failed to delete file");
-                      }
-                    }}
+                    onClick={() => handleDelete(material)}   
+                    disabled={deleting === material.name}
                   >
-                    Delete
+                    {deleting === material.name ? "Deleting..." : "Delete"}               
+                  
+                  
                   </Button>
                 )}
                 <a href={material.url} download>

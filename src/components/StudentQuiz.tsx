@@ -25,6 +25,7 @@ export default function StudentQuiz({ quizId }: { quizId: string }) {
           initial[q._id] = null
         })
         setAnswers(initial)
+        console.log(data)
         setTimeLeft(typeof data.timeLimitSeconds === "number" ? data.timeLimitSeconds : 0)
       })
   }, [quizId])

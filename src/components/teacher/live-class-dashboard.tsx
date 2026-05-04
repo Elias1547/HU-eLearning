@@ -221,9 +221,9 @@ export default function TeacherLiveClassDashboard() {
                   <SelectTrigger>
                     <SelectValue placeholder="Select a course" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-black text-white">
                     {courses.map(course => (
-                      <SelectItem key={course._id} value={course._id}>
+                      <SelectItem className="bg-black text-white" value={course._id}>
                         {course.title}
                       </SelectItem>
                     ))}

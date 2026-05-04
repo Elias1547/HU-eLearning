@@ -23,26 +23,22 @@ export async function POST(req: NextRequest) {
     await dbConnect()
 
     const body = await req.json()
-    const courseId = body.courseId || body.course
-    if (!courseId) {
-      return NextResponse.json({ error: "courseId is required" }, { status: 400 })
-    }
+    const courseId = body.courseId
+    if (!courseId) return NextResponse.json({ error: "courseId is required" }, { status: 400 })
 
-    const validated = quizValidationSchema.parse({
-      ...body,
-      course: courseId,
-    })
+    // Validate frontend payload
+    const validated = quizValidationSchema.parse(body)
 
+    // Ensure course exists and teacher owns it
     const course = await Course.findById(courseId).lean()
-    if (!course) {
-      return NextResponse.json({ error: "Course not found" }, { status: 404 })
-    }
+    if (!course) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     if (course.teacher?.toString() !== session.user.id) {
       return NextResponse.json({ error: "You can only create quizzes for your own courses" }, { status: 403 })
     }
 
+    // Map courseId -> course for Mongoose
     const quiz = await Quiz.create({
-      course: validated.course,
+      course: courseId,
       teacher: session.user.id,
       title: validated.title,
       description: validated.description,
@@ -53,20 +49,21 @@ export async function POST(req: NextRequest) {
       showAnswersAfterSubmission: validated.showAnswersAfterSubmission,
       instantResults: validated.instantResults,
       shuffleQuestions: validated.shuffleQuestions,
-      published: validated.published ?? false,
-      requiredForCertificate: validated.requiredForCertificate ?? true,
+      published: validated.published, // <-- ensure we take value from frontend exactly
+      requiredForCertificate: validated.requiredForCertificate,
     })
 
+    // Notify students if published
     if (quiz.published) {
-      const students = await Student.find({ purchasedCourses: validated.course }).select("_id").lean()
+      const students = await Student.find({ purchasedCourses: courseId }).select("_id").lean()
       await notifyMany(
-        (students as unknown as { _id: unknown }[]).map((s) => ({ userId: toIdString(s._id), userRole: "student" as const })),
+        students.map((s:any) => ({ userId: s._id.toString(), userRole: "student" as const })),
         {
           type: "quiz_published",
           title: `New quiz published: ${quiz.title}`,
           body: "A new quiz is now available in your course.",
-          link: `/courses/${validated.course}`,
-          courseId: validated.course,
+          link: `/courses/${courseId}`,
+          courseId,
           data: { quizId: quiz._id.toString() },
         }
       )
@@ -75,10 +72,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ quiz: quiz.toJSON() }, { status: 201 })
   } catch (error) {
     console.error("Quiz create error:", error)
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json({ error: "Invalid input data", details: error.message }, { status: 400 })
+    if (error.name === "ZodError") {
+      return NextResponse.json({ error: "Invalid input data", details: (error as any).format() }, { status: 400 })
     }
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }
-

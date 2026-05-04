@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -30,6 +31,9 @@ import {
   UserX,
   UserCheck,
   Eye,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,9 +55,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface AdminType {
-  _id: { toString(): string };
+  _id: string | { toString(): string };
   name: string;
   email: string;
   createdAt: string | number | Date;
@@ -61,7 +75,7 @@ interface AdminType {
 }
 
 interface StudentType {
-  _id: { toString(): string };
+  _id: string | { toString(): string };
   name: string;
   email: string;
   createdAt: string | number | Date;
@@ -70,9 +84,11 @@ interface StudentType {
 }
 
 interface TeacherType {
-  _id: { toString(): string };
+  _id: string | { toString(): string };
   name: string;
   email: string;
+  upiId?: string;
+  age?: number;
   createdAt: string | number | Date;
   coursesCreated?: string[];
   isActive?: boolean;
@@ -89,6 +105,7 @@ export default function AdminUsersPage({
   teachers: initialTeachers = [],
   admins: initialAdmins = [],
 }: AdminUsersPageProps = {}) {
+  const { data: session } = useSession();
   const [students, setStudents] = useState<StudentType[]>(initialStudents);
   const [teachers, setTeachers] = useState<TeacherType[]>(initialTeachers);
   const [admins, setAdmins] = useState<AdminType[]>(initialAdmins);
@@ -109,8 +126,112 @@ export default function AdminUsersPage({
     userName: "",
     currentStatus: true,
   });
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingAdminId, setEditingAdminId] = useState<string>("");
+  const [deletingAdminId, setDeletingAdminId] = useState<string>("");
+  const [createStudentDialogOpen, setCreateStudentDialogOpen] = useState(false);
+  const [createTeacherDialogOpen, setCreateTeacherDialogOpen] = useState(false);
+  const [editStudentDialogOpen, setEditStudentDialogOpen] = useState(false);
+  const [editTeacherDialogOpen, setEditTeacherDialogOpen] = useState(false);
+  const [deletingUserDialog, setDeletingUserDialog] = useState<{
+    open: boolean;
+    userId: string;
+    userType: "student" | "teacher" | "";
+    userName: string;
+  }>({
+    open: false,
+    userId: "",
+    userType: "",
+    userName: "",
+  });
+  const [editingStudentId, setEditingStudentId] = useState<string>("");
+  const [editingTeacherId, setEditingTeacherId] = useState<string>("");
+  const [formState, setFormState] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [studentForm, setStudentForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [teacherForm, setTeacherForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    upiId: "",
+    age: "",
+  });
+  const [activeUserTab, setActiveUserTab] = useState<"students" | "teachers" | "admins">(
+    "students"
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
+  const [studentsPage, setStudentsPage] = useState(1);
+  const [teachersPage, setTeachersPage] = useState(1);
+  const [adminsPage, setAdminsPage] = useState(1);
+  const USERS_PER_PAGE = 8;
 
   const router = useRouter();
+  const toIdString = (id: string | { toString(): string }) =>
+    typeof id === "string" ? id : id.toString();
+  const matchesSearch = useCallback(
+    (name: string, email: string) =>
+      `${name} ${email}`.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+    [searchQuery]
+  );
+  const matchesStatus = useCallback(
+    (isActive?: boolean) => {
+      if (statusFilter === "all") return true;
+      if (statusFilter === "active") return isActive !== false;
+      return isActive === false;
+    },
+    [statusFilter]
+  );
+
+  const filteredStudents = useMemo(
+    () =>
+      students.filter(
+        (student) =>
+          matchesSearch(student.name, student.email) && matchesStatus(student.isActive)
+      ),
+    [students, matchesSearch, matchesStatus]
+  );
+  const filteredTeachers = useMemo(
+    () =>
+      teachers.filter(
+        (teacher) =>
+          matchesSearch(teacher.name, teacher.email) && matchesStatus(teacher.isActive)
+      ),
+    [teachers, matchesSearch, matchesStatus]
+  );
+  const filteredAdmins = useMemo(
+    () =>
+      admins.filter(
+        (admin) => matchesSearch(admin.name, admin.email) && matchesStatus(admin.isActive)
+      ),
+    [admins, matchesSearch, matchesStatus]
+  );
+
+  const studentsTotalPages = Math.max(1, Math.ceil(filteredStudents.length / USERS_PER_PAGE));
+  const teachersTotalPages = Math.max(1, Math.ceil(filteredTeachers.length / USERS_PER_PAGE));
+  const adminsTotalPages = Math.max(1, Math.ceil(filteredAdmins.length / USERS_PER_PAGE));
+
+  const pagedStudents = filteredStudents.slice(
+    (studentsPage - 1) * USERS_PER_PAGE,
+    studentsPage * USERS_PER_PAGE
+  );
+  const pagedTeachers = filteredTeachers.slice(
+    (teachersPage - 1) * USERS_PER_PAGE,
+    teachersPage * USERS_PER_PAGE
+  );
+  const pagedAdmins = filteredAdmins.slice(
+    (adminsPage - 1) * USERS_PER_PAGE,
+    adminsPage * USERS_PER_PAGE
+  );
 
   // Fetch all users data
   useEffect(() => {
@@ -140,6 +261,12 @@ export default function AdminUsersPage({
     fetchUsersData();
   }, []);
 
+  useEffect(() => {
+    setStudentsPage(1);
+    setTeachersPage(1);
+    setAdminsPage(1);
+  }, [searchQuery, statusFilter, activeUserTab]);
+
   const handleSuspendAccount = async () => {
     setLoading(suspendDialog.userId);
     setError(null);
@@ -166,7 +293,7 @@ export default function AdminUsersPage({
         if (suspendDialog.userType === "student") {
           setStudents(prev =>
             prev.map(student =>
-              student._id.toString() === suspendDialog.userId
+              toIdString(student._id) === suspendDialog.userId
                 ? { ...student, isActive: newStatus }
                 : student
             )
@@ -174,7 +301,7 @@ export default function AdminUsersPage({
         } else if (suspendDialog.userType === "teacher") {
           setTeachers(prev =>
             prev.map(teacher =>
-              teacher._id.toString() === suspendDialog.userId
+              toIdString(teacher._id) === suspendDialog.userId
                 ? { ...teacher, isActive: newStatus }
                 : teacher
             )
@@ -182,7 +309,7 @@ export default function AdminUsersPage({
         } else if (suspendDialog.userType === "admin") {
           setAdmins(prev =>
             prev.map(admin =>
-              admin._id.toString() === suspendDialog.userId
+              toIdString(admin._id) === suspendDialog.userId
                 ? { ...admin, isActive: newStatus }
                 : admin
             )
@@ -232,6 +359,283 @@ export default function AdminUsersPage({
     });
   };
 
+  const openCreateDialog = () => {
+    setFormState({ name: "", email: "", password: "" });
+    setCreateDialogOpen(true);
+  };
+
+  const openEditDialog = (admin: AdminType) => {
+    setEditingAdminId(toIdString(admin._id));
+    setFormState({ name: admin.name, email: admin.email, password: "" });
+    setEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (adminId: string) => {
+    setDeletingAdminId(adminId);
+    setDeleteDialogOpen(true);
+  };
+
+  const openCreateStudentDialog = () => {
+    setStudentForm({ name: "", email: "", password: "" });
+    setCreateStudentDialogOpen(true);
+  };
+
+  const openCreateTeacherDialog = () => {
+    setTeacherForm({ name: "", email: "", password: "", upiId: "", age: "" });
+    setCreateTeacherDialogOpen(true);
+  };
+
+  const openEditStudentDialog = (student: StudentType) => {
+    setEditingStudentId(toIdString(student._id));
+    setStudentForm({ name: student.name, email: student.email, password: "" });
+    setEditStudentDialogOpen(true);
+  };
+
+  const openEditTeacherDialog = (teacher: TeacherType) => {
+    setEditingTeacherId(toIdString(teacher._id));
+    setTeacherForm({
+      name: teacher.name,
+      email: teacher.email,
+      password: "",
+      upiId: teacher.upiId || "",
+      age: teacher.age ? String(teacher.age) : "",
+    });
+    setEditTeacherDialogOpen(true);
+  };
+
+  const openDeleteUserDialog = (
+    userId: string,
+    userType: "student" | "teacher",
+    userName: string
+  ) => {
+    setDeletingUserDialog({
+      open: true,
+      userId,
+      userType,
+      userName,
+    });
+  };
+
+  const handleCreateAdmin = async () => {
+    setLoading("create-admin");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch("/api/admin/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formState),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to create admin");
+      setAdmins((prev) => [result.admin, ...prev]);
+      setCreateDialogOpen(false);
+      setSuccess("Admin account created successfully.");
+      setFormState({ name: "", email: "", password: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleUpdateAdmin = async () => {
+    if (!editingAdminId) return;
+    setLoading("update-admin");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/admins/${editingAdminId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formState),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to update admin");
+      setAdmins((prev) =>
+        prev.map((admin) =>
+          toIdString(admin._id) === editingAdminId ? result.admin : admin
+        )
+      );
+      setEditDialogOpen(false);
+      setSuccess("Admin account updated successfully.");
+      setFormState({ name: "", email: "", password: "" });
+      setEditingAdminId("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDeleteAdmin = async () => {
+    if (!deletingAdminId) return;
+    setLoading("delete-admin");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/admins/${deletingAdminId}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete admin");
+      setAdmins((prev) =>
+        prev.filter((admin) => toIdString(admin._id) !== deletingAdminId)
+      );
+      setDeleteDialogOpen(false);
+      setDeletingAdminId("");
+      setSuccess("Admin account deleted successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleCreateStudent = async () => {
+    setLoading("create-student");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...studentForm, userType: "student" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to create student");
+      setStudents((prev) => [result.user, ...prev]);
+      setCreateStudentDialogOpen(false);
+      setSuccess("Student account created successfully.");
+      setStudentForm({ name: "", email: "", password: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleCreateTeacher = async () => {
+    setLoading("create-teacher");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...teacherForm,
+          age: teacherForm.age ? Number(teacherForm.age) : undefined,
+          userType: "teacher",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to create teacher");
+      setTeachers((prev) => [result.user, ...prev]);
+      setCreateTeacherDialogOpen(false);
+      setSuccess("Teacher account created successfully.");
+      setTeacherForm({ name: "", email: "", password: "", upiId: "", age: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleUpdateStudent = async () => {
+    if (!editingStudentId) return;
+    setLoading("update-student");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/users/${editingStudentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...studentForm, userType: "student" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to update student");
+      setStudents((prev) =>
+        prev.map((student) =>
+          toIdString(student._id) === editingStudentId ? result.user : student
+        )
+      );
+      setEditStudentDialogOpen(false);
+      setEditingStudentId("");
+      setSuccess("Student account updated successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleUpdateTeacher = async () => {
+    if (!editingTeacherId) return;
+    setLoading("update-teacher");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/users/${editingTeacherId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...teacherForm,
+          age: teacherForm.age ? Number(teacherForm.age) : undefined,
+          userType: "teacher",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to update teacher");
+      setTeachers((prev) =>
+        prev.map((teacher) =>
+          toIdString(teacher._id) === editingTeacherId ? result.user : teacher
+        )
+      );
+      setEditTeacherDialogOpen(false);
+      setEditingTeacherId("");
+      setSuccess("Teacher account updated successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deletingUserDialog.userId || !deletingUserDialog.userType) return;
+    setLoading("delete-user");
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/users/${deletingUserDialog.userId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userType: deletingUserDialog.userType }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete user");
+
+      if (deletingUserDialog.userType === "student") {
+        setStudents((prev) =>
+          prev.filter((student) => toIdString(student._id) !== deletingUserDialog.userId)
+        );
+      } else {
+        setTeachers((prev) =>
+          prev.filter((teacher) => toIdString(teacher._id) !== deletingUserDialog.userId)
+        );
+      }
+      setDeletingUserDialog({ open: false, userId: "", userType: "", userName: "" });
+      setSuccess(
+        `${deletingUserDialog.userType === "student" ? "Student" : "Teacher"} deleted successfully.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
@@ -240,7 +644,52 @@ export default function AdminUsersPage({
           <Button asChild variant="outline">
             <Link href="/admin/dashboard">Back to Dashboard</Link>
           </Button>
+          {activeUserTab === "students" && (
+            <Button  onClick={openCreateStudentDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Student
+            </Button>
+          )}
+          {activeUserTab === "teachers" && (
+            <Button onClick={openCreateTeacherDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Teacher
+            </Button>
+          )}
+          {activeUserTab === "admins" && (
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Admin
+            </Button>
+          )}
         </div>
+      </div>
+      <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Input
+          placeholder="Search by name or email"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          className="w-full border rounded-md px-3 py-2 bg-background"
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as "all" | "active" | "suspended")
+          }
+        >
+          <option value="all">All statuses</option>
+          <option value="active">Active only</option>
+          <option value="suspended">Suspended only</option>
+        </select>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchQuery("");
+            setStatusFilter("all");
+          }}
+        >
+          Reset Filters
+        </Button>
       </div>
 
       {/* Success/Error Messages */}
@@ -263,19 +712,25 @@ export default function AdminUsersPage({
           </div>
         </div>
       ) : (
-        <Tabs defaultValue="students" className="w-full">
+        <Tabs
+          value={activeUserTab}
+          onValueChange={(value) =>
+            setActiveUserTab(value as "students" | "teachers" | "admins")
+          }
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="students" className="flex items-center gap-2">
               <GraduationCap className="h-4 w-4" />
-              Students ({students?.length || 0})
+              Students ({filteredStudents.length})
             </TabsTrigger>
             <TabsTrigger value="teachers" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
-              Teachers ({teachers?.length || 0})
+              Teachers ({filteredTeachers.length})
             </TabsTrigger>
             <TabsTrigger value="admins" className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
-              Admins ({admins?.length || 0})
+              Admins ({filteredAdmins.length})
             </TabsTrigger>
           </TabsList>
 
@@ -300,8 +755,8 @@ export default function AdminUsersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(students || []).map((student: StudentType) => (
-                    <TableRow key={student._id.toString()}>
+                  {pagedStudents.map((student: StudentType) => (
+                    <TableRow key={toIdString(student._id)}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <UserCircle className="h-5 w-5 text-muted-foreground" />
                         {student.name}
@@ -342,10 +797,29 @@ export default function AdminUsersPage({
                               <span>Email Student</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleViewProfile(student._id.toString(), "student")}
+                              onClick={() => handleViewProfile(toIdString(student._id), "student")}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               <span>View Profile</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => openEditStudentDialog(student)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              <span>Edit Student</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() =>
+                                openDeleteUserDialog(
+                                  toIdString(student._id),
+                                  "student",
+                                  student.name
+                                )
+                              }
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span>Delete Student</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -356,13 +830,13 @@ export default function AdminUsersPage({
                               }
                               onClick={() =>
                                 openSuspendDialog(
-                                  student._id.toString(),
+                                  toIdString(student._id),
                                   "student",
                                   student.name,
                                   student.isActive !== false
                                 )
                               }
-                              disabled={loading === student._id.toString()}
+                              disabled={loading === toIdString(student._id)}
                             >
                               {student.isActive !== false ? (
                                 <UserX className="mr-2 h-4 w-4" />
@@ -370,7 +844,7 @@ export default function AdminUsersPage({
                                 <UserCheck className="mr-2 h-4 w-4" />
                               )}
                               <span>
-                                {loading === student._id.toString()
+                                {loading === toIdString(student._id)
                                   ? "Processing..."
                                   : student.isActive !== false
                                   ? "Suspend Account"
@@ -384,6 +858,31 @@ export default function AdminUsersPage({
                   ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Page {studentsPage} of {studentsTotalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={studentsPage <= 1}
+                    onClick={() => setStudentsPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={studentsPage >= studentsTotalPages}
+                    onClick={() =>
+                      setStudentsPage((p) => Math.min(studentsTotalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -409,8 +908,8 @@ export default function AdminUsersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(teachers || []).map((teacher: TeacherType) => (
-                    <TableRow key={teacher._id.toString()}>
+                  {pagedTeachers.map((teacher: TeacherType) => (
+                    <TableRow key={toIdString(teacher._id)}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-muted-foreground" />
                         {teacher.name}
@@ -451,16 +950,35 @@ export default function AdminUsersPage({
                               <span>Email Teacher</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleViewProfile(teacher._id.toString(), "teacher")}
+                              onClick={() => handleViewProfile(toIdString(teacher._id), "teacher")}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               <span>View Profile</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleViewCourses(teacher._id.toString())}
+                              onClick={() => handleViewCourses(toIdString(teacher._id))}
                             >
                               <BookOpen className="mr-2 h-4 w-4" />
                               <span>View Courses</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => openEditTeacherDialog(teacher)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              <span>Edit Teacher</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() =>
+                                openDeleteUserDialog(
+                                  toIdString(teacher._id),
+                                  "teacher",
+                                  teacher.name
+                                )
+                              }
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span>Delete Teacher</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -471,13 +989,13 @@ export default function AdminUsersPage({
                               }
                               onClick={() =>
                                 openSuspendDialog(
-                                  teacher._id.toString(),
+                                  toIdString(teacher._id),
                                   "teacher",
                                   teacher.name,
                                   teacher.isActive !== false
                                 )
                               }
-                              disabled={loading === teacher._id.toString()}
+                              disabled={loading === toIdString(teacher._id)}
                             >
                               {teacher.isActive !== false ? (
                                 <UserX className="mr-2 h-4 w-4" />
@@ -485,7 +1003,7 @@ export default function AdminUsersPage({
                                 <UserCheck className="mr-2 h-4 w-4" />
                               )}
                               <span>
-                                {loading === teacher._id.toString()
+                                {loading === toIdString(teacher._id)
                                   ? "Processing..."
                                   : teacher.isActive !== false
                                   ? "Suspend Account"
@@ -499,6 +1017,31 @@ export default function AdminUsersPage({
                   ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Page {teachersPage} of {teachersTotalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={teachersPage <= 1}
+                    onClick={() => setTeachersPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={teachersPage >= teachersTotalPages}
+                    onClick={() =>
+                      setTeachersPage((p) => Math.min(teachersTotalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -521,8 +1064,8 @@ export default function AdminUsersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(admins || []).map((admin: AdminType) => (
-                    <TableRow key={admin._id.toString()}>
+                  {pagedAdmins.map((admin: AdminType) => (
+                    <TableRow key={toIdString(admin._id)}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5 text-muted-foreground" />
                         {admin.name}
@@ -560,11 +1103,26 @@ export default function AdminUsersPage({
                               <span>Email Admin</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleViewProfile(admin._id.toString(), "admin")}
+                              onClick={() => handleViewProfile(toIdString(admin._id), "admin")}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               <span>View Profile</span>
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => openEditDialog(admin)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              <span>Edit Admin</span>
+                            </DropdownMenuItem>
+                            {session?.user?.email !== admin.email && (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => openDeleteDialog(toIdString(admin._id))}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete Admin</span>
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className={
@@ -574,13 +1132,13 @@ export default function AdminUsersPage({
                               }
                               onClick={() =>
                                 openSuspendDialog(
-                                  admin._id.toString(),
+                                  toIdString(admin._id),
                                   "admin",
                                   admin.name,
                                   admin.isActive !== false
                                 )
                               }
-                              disabled={loading === admin._id.toString()}
+                              disabled={loading === toIdString(admin._id)}
                             >
                               {admin.isActive !== false ? (
                                 <UserX className="mr-2 h-4 w-4" />
@@ -588,7 +1146,7 @@ export default function AdminUsersPage({
                                 <UserCheck className="mr-2 h-4 w-4" />
                               )}
                               <span>
-                                {loading === admin._id.toString()
+                                {loading === toIdString(admin._id)
                                   ? "Processing..."
                                   : admin.isActive !== false
                                   ? "Revoke Access"
@@ -602,6 +1160,31 @@ export default function AdminUsersPage({
                   ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Page {adminsPage} of {adminsTotalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={adminsPage <= 1}
+                    onClick={() => setAdminsPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={adminsPage >= adminsTotalPages}
+                    onClick={() =>
+                      setAdminsPage((p) => Math.min(adminsTotalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -637,6 +1220,425 @@ export default function AdminUsersPage({
               }
             >
               {suspendDialog.currentStatus ? "Suspend" : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Admin</DialogTitle>
+            <DialogDescription>
+              Add a new administrator account with full admin access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Name</Label>
+              <Input
+                id="create-name"
+                value={formState.name}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Admin name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Email</Label>
+              <Input
+                id="create-email"
+                type="email"
+                value={formState.email}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="admin@domain.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-password">Password</Label>
+              <Input
+                id="create-password"
+                type="password"
+                value={formState.password}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, password: e.target.value }))
+                }
+                placeholder="Strong password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateAdmin} disabled={loading === "create-admin"}>
+              {loading === "create-admin" ? "Creating..." : "Create Admin"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Admin</DialogTitle>
+            <DialogDescription>
+              Update admin profile details. Password is optional.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={formState.name}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formState.email}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-password">New Password (Optional)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formState.password}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, password: e.target.value }))
+                }
+                placeholder="Leave blank to keep current password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateAdmin} disabled={loading === "update-admin"}>
+              {loading === "update-admin" ? "Updating..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Admin Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the admin account. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAdmin}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {loading === "delete-admin" ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={createStudentDialogOpen} onOpenChange={setCreateStudentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Student</DialogTitle>
+            <DialogDescription>Add a new student account.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="student-create-name">Name</Label>
+              <Input
+                id="student-create-name"
+                value={studentForm.name}
+                onChange={(e) =>
+                  setStudentForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-create-email">Email</Label>
+              <Input
+                id="student-create-email"
+                type="email"
+                value={studentForm.email}
+                onChange={(e) =>
+                  setStudentForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-create-password">Password</Label>
+              <Input
+                id="student-create-password"
+                type="password"
+                value={studentForm.password}
+                onChange={(e) =>
+                  setStudentForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateStudentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateStudent}
+              disabled={loading === "create-student"}
+            >
+              {loading === "create-student" ? "Creating..." : "Create Student"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createTeacherDialogOpen} onOpenChange={setCreateTeacherDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Teacher</DialogTitle>
+            <DialogDescription>Add a new teacher account.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="teacher-create-name">Name</Label>
+              <Input
+                id="teacher-create-name"
+                value={teacherForm.name}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-create-email">Email</Label>
+              <Input
+                id="teacher-create-email"
+                type="email"
+                value={teacherForm.email}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-create-upi">UPI ID</Label>
+              <Input
+                id="teacher-create-upi"
+                value={teacherForm.upiId}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, upiId: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-create-age">Age (optional)</Label>
+              <Input
+                id="teacher-create-age"
+                type="number"
+                value={teacherForm.age}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, age: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-create-password">Password</Label>
+              <Input
+                id="teacher-create-password"
+                type="password"
+                value={teacherForm.password}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateTeacherDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTeacher}
+              disabled={loading === "create-teacher"}
+            >
+              {loading === "create-teacher" ? "Creating..." : "Create Teacher"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editStudentDialogOpen} onOpenChange={setEditStudentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+            <DialogDescription>
+              Update student details. Password is optional.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="student-edit-name">Name</Label>
+              <Input
+                id="student-edit-name"
+                value={studentForm.name}
+                onChange={(e) =>
+                  setStudentForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-edit-email">Email</Label>
+              <Input
+                id="student-edit-email"
+                type="email"
+                value={studentForm.email}
+                onChange={(e) =>
+                  setStudentForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-edit-password">New Password (optional)</Label>
+              <Input
+                id="student-edit-password"
+                type="password"
+                value={studentForm.password}
+                onChange={(e) =>
+                  setStudentForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditStudentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateStudent}
+              disabled={loading === "update-student"}
+            >
+              {loading === "update-student" ? "Updating..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editTeacherDialogOpen} onOpenChange={setEditTeacherDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Teacher</DialogTitle>
+            <DialogDescription>
+              Update teacher details. Password is optional.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="teacher-edit-name">Name</Label>
+              <Input
+                id="teacher-edit-name"
+                value={teacherForm.name}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-edit-email">Email</Label>
+              <Input
+                id="teacher-edit-email"
+                type="email"
+                value={teacherForm.email}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-edit-upi">UPI ID</Label>
+              <Input
+                id="teacher-edit-upi"
+                value={teacherForm.upiId}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, upiId: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-edit-age">Age (optional)</Label>
+              <Input
+                id="teacher-edit-age"
+                type="number"
+                value={teacherForm.age}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, age: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="teacher-edit-password">New Password (optional)</Label>
+              <Input
+                id="teacher-edit-password"
+                type="password"
+                value={teacherForm.password}
+                onChange={(e) =>
+                  setTeacherForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTeacherDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateTeacher}
+              disabled={loading === "update-teacher"}
+            >
+              {loading === "update-teacher" ? "Updating..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={deletingUserDialog.open}
+        onOpenChange={(open) =>
+          setDeletingUserDialog((prev) => ({ ...prev, open }))
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{deletingUserDialog.userName}</strong>? This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {loading === "delete-user" ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Label } from "@radix-ui/react-dropdown-menu";
 import AnnauncementBell from "./annauncementBell";
+import { ModeToggle } from "./ui/toggle";
 
 // Role-specific navigation configurations
 const roleNavConfigs = {
@@ -150,7 +151,7 @@ export function Navbar() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2">
             <BookOpen className="h-6 w-6" />
-            <span className="hidden font-bold sm:inline-block">EduLearn</span>
+            <span className="hidden font-bold sm:inline-block">HU-elearning</span>
           </Link>
           {/* Desktop Navigation */}
           <nav className="hidden md:flex gap-6">
@@ -169,7 +170,7 @@ export function Navbar() {
            {session?.user?.role === "student" && <AnnauncementBell /> }
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 lg: justify-end">
           {showAuthButtons && (
             <div className="flex items-center gap-4">
               <Link href="/role">
@@ -182,13 +183,14 @@ export function Navbar() {
               </Link>
             </div>
           )}
-
+            <ModeToggle />  
           {showUserDropdown && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center xlg:justify-end gap-4">
               <Link href={getDashboardLink()} className="hidden md:block">
                 <Button variant="outline" size="sm">
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Dashboard
+                
                 </Button>
               </Link>
               <DropdownMenu>
@@ -248,11 +250,7 @@ export function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          )}
-
-          {/* Mobile Menu Toggle */}
-          <Button
+                <Button
             variant="ghost"
             size="sm"
             className="md:hidden"
@@ -264,6 +262,11 @@ export function Navbar() {
               <Menu className="h-5 w-5" />
             )}
           </Button>
+            </div>
+          )}
+
+      
+        
         </div>
       </div>
 
