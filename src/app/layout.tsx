@@ -19,10 +19,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EduLearn - Learning Management System (LMS)",
+  title: "Hu-elearning (LMS)",
   authors: [
     {
-      name: "EduLearn Team",
+      name: "Hu-elearning",
       url: "",
     },
   ],
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     "Student Portal",
     "Teacher Portal",
     "Education Platform",
-    "EduLearn",
+    "Hu-elearning",
   ],
   description:
     "A modern platform for online education. Learn, teach, and grow with us. EduLearn is your go-to solution for managing courses, students, and educational content. Join us today!",
