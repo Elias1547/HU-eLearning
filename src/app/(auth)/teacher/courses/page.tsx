@@ -249,6 +249,11 @@ export default function TeacherCoursesPage() {
                     <Eye className="mr-1 h-4 w-4" /> Preview
                   </Button>
                 </Link>
+                <Link href={`/teacher/courses/${course._id}/progress`}>
+                  <Button variant="outline" size="sm">
+                    Progress
+                  </Button>
+                </Link>
                 {/* Publish/Unpublish */}
                 <Button
                   variant="outline"

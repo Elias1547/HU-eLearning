@@ -38,8 +38,9 @@ function serializeQuizForStudent(quiz: QuizLean) {
       const qq = q as Record<string, unknown> & { _id: { toString: () => string } }
       return {
         _id: qq._id.toString(),
-        type: qq.type,
-        prompt: qq.prompt,
+        // Support both legacy schema (questionText) and newer schema (prompt)
+        type: (qq.type as string) || "multiple_choice",
+        prompt: (qq.prompt as string) || (qq.questionText as string) || "",
         options: qq.options,
         points: qq.points,
         explanation: qq.explanation,
