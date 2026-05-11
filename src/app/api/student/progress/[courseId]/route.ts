@@ -29,14 +29,17 @@ export async function GET(
     const percentageCompleted =
       totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 10000) / 100 : 0
 
+    const videoProgressObj = (progressDoc?.videoProgress || {}) as Record<string, number>
+    const timeSpent = Object.values(videoProgressObj).reduce((sum, v) => sum + (Number(v) || 0), 0)
+
     return NextResponse.json({
       completedVideos,
       totalVideos,
       percentageCompleted,
-      completedVideoIds: (progressDoc?.completedVideos || []).map((id: unknown) =>
-        String(id)
-      ),
-      videoProgress: progressDoc?.videoProgress || {},
+      lastAccessedVideo: progressDoc?.lastAccessedVideo ? String(progressDoc.lastAccessedVideo) : null,
+      timeSpent,
+      completedVideoIds: (progressDoc?.completedVideos || []).map((id: unknown) => String(id)),
+      videoProgress: videoProgressObj,
     })
   } catch (error) {
     console.error("Error fetching student progress:", error)
@@ -99,6 +102,7 @@ export async function POST(
     ) {
       progress.completedVideos.push(key)
     }
+    progress.lastAccessedVideo = key
 
     const totalVideos = await Video.countDocuments({ course: params.courseId })
     progress.percentageCompleted =

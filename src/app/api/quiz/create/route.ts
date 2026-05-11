@@ -7,12 +7,6 @@ import { Quiz, quizValidationSchema } from "@/models/quiz"
 import { Student } from "@/models/student"
 import { notifyMany } from "@/lib/notifications"
 
-function toIdString(id: unknown) {
-  if (typeof id === "string") return id
-  if (id && typeof (id as { toString?: unknown }).toString === "function") return (id as { toString: () => string }).toString()
-  return ""
-}
-
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -57,7 +51,10 @@ export async function POST(req: NextRequest) {
     if (quiz.published) {
       const students = await Student.find({ purchasedCourses: courseId }).select("_id").lean()
       await notifyMany(
-        students.map((s:any) => ({ userId: s._id.toString(), userRole: "student" as const })),
+        students.map((s: { _id: { toString: () => string } }) => ({
+          userId: s._id.toString(),
+          userRole: "student" as const,
+        })),
         {
           type: "quiz_published",
           title: `New quiz published: ${quiz.title}`,
@@ -72,8 +69,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ quiz: quiz.toJSON() }, { status: 201 })
   } catch (error) {
     console.error("Quiz create error:", error)
-    if (error.name === "ZodError") {
-      return NextResponse.json({ error: "Invalid input data", details: (error as any).format() }, { status: 400 })
+    if (error instanceof Error && error.name === "ZodError") {
+      return NextResponse.json({ error: "Invalid input data" }, { status: 400 })
     }
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }

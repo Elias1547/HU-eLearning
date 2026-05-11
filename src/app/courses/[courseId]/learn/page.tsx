@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Play,
@@ -20,7 +19,6 @@ import {
   Target,
   BarChart3,
   Users,
-  Calendar,
   Download,
   Share2,
   Bookmark,
@@ -30,11 +28,9 @@ import {
   Lock,
   ChevronRight,
   PlayCircle,
-  Pause,
   Eye,
   ThumbsUp,
   MessageSquare,
-  TrendingUp,
   Zap,
   Shield,
   Globe,
@@ -84,8 +80,8 @@ interface Course {
 interface CourseProgress {
   completedVideos: number
   totalVideos: number
-  percentage: number
-  lastAccessedVideo?: string
+  percentageCompleted: number
+  lastAccessedVideo?: string | null
   timeSpent: number
 }
 
@@ -106,18 +102,7 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [selectedSection, setSelectedSection] = useState<string>('overview')
 
-  useEffect(() => {
-    if (status === 'loading') return
-
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    fetchCourseData()
-  }, [session, status, courseId])
-
-  const fetchCourseData = async () => {
+  const fetchCourseData = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -142,7 +127,18 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [courseId])
+
+  useEffect(() => {
+    if (status === 'loading') return
+
+    if (!session) {
+      router.push('/auth/signin')
+      return
+    }
+
+    fetchCourseData()
+  }, [session, status, courseId, router, fetchCourseData])
 
   const handleStartVideo = (videoId: string) => {
     router.push(`/courses/${courseId}/learn/${videoId}`)
@@ -154,13 +150,6 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
     } else if (course?.videos.length) {
       router.push(`/courses/${courseId}/learn/${course.videos[0]._id}`)
     }
-  }
-
-  const formatDuration = (duration: string | number) => {
-    if (typeof duration === 'string') return duration
-    const hours = Math.floor(duration / 3600)
-    const minutes = Math.floor((duration % 3600) / 60)
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
   }
 
   const getDifficultyColor = (difficulty?: string) => {
@@ -234,8 +223,8 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
               <div className="text-right">
                 <div className="text-sm text-muted-foreground mb-2">Course Progress</div>
                 <div className="flex items-center space-x-2">
-                  <Progress value={progress.percentage} className="w-32" />
-                  <span className="text-sm font-medium">{Math.round(progress.percentage)}%</span>
+                  <Progress value={progress.percentageCompleted} className="w-32" />
+                  <span className="text-sm font-medium">{Math.round(progress.percentageCompleted)}%</span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {progress.completedVideos} of {progress.totalVideos} videos completed
@@ -251,7 +240,7 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Continue Watching Section */}
-            {progress && progress.percentage > 0 && (
+            {progress && progress.percentageCompleted > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
@@ -263,9 +252,9 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        You're {Math.round(progress.percentage)}% complete
+                        You&apos;re {Math.round(progress.percentageCompleted)}% complete
                       </p>
-                      <Progress value={progress.percentage} className="w-64 mb-4" />
+                      <Progress value={progress.percentageCompleted} className="w-64 mb-4" />
                     </div>
                     <Button onClick={handleContinueWatching} className="flex items-center space-x-2">
                       <PlayCircle className="h-4 w-4" />
@@ -301,7 +290,7 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
                       <div className="mb-6">
                         <h3 className="font-semibold mb-3 flex items-center">
                           <Target className="h-4 w-4 mr-2" />
-                          What You'll Learn
+                          What You&apos;ll Learn
                         </h3>
                         <ul className="space-y-2">
                           {course.learningOutcomes.map((outcome, index) => (
@@ -319,7 +308,7 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
                       <div className="mb-6">
                         <h3 className="font-semibold mb-3 flex items-center">
                           <Zap className="h-4 w-4 mr-2" />
-                          Skills You'll Gain
+                          Skills You&apos;ll Gain
                         </h3>
                         <div className="flex flex-wrap gap-2">
                           {course.skills.map((skill, index) => (

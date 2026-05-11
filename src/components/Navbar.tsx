@@ -155,7 +155,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-2 sm:gap-4 lg:justify-end">
           {showAuthButtons && (
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="flex items-center gap-2">
               <Link href="/role">
                 <Button variant="outline" size="sm">
                   Sign In

@@ -5,6 +5,7 @@ const courseProgressSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
   completedVideos: [{ type: mongoose.Schema.Types.ObjectId, ref: "Video" }], // Which videos completed
+  lastAccessedVideo: { type: mongoose.Schema.Types.ObjectId, ref: "Video" },
   submittedAssignments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Assignment" }],
   passedQuizzes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Quiz" }],
   videoProgress: {
