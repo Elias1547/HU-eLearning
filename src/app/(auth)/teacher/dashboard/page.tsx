@@ -6,6 +6,8 @@ import { Course } from "@/models/course";
 import { Student } from "@/models/student";
 import { Review } from "@/models/review";
 import { RequestRefund } from "@/models/request-refund";
+import { CourseProgress } from "@/models/course-progress";
+import { Video as VideoModel } from "@/models/video";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -216,6 +218,51 @@ export default async function TeacherDashboard() {
   // Get pending refund requests count
   const pendingRefunds = refundRequests.filter((req) => req.requestStatus === "pending").length;
 
+  const totalVideosByCourse = await Promise.all(
+    courseIds.map(async (id) => ({
+      courseId: id,
+      totalVideos: await VideoModel.countDocuments({ course: id }),
+    }))
+  );
+  const videosMap = new Map(totalVideosByCourse.map((item) => [item.courseId, item.totalVideos]));
+
+  const progressRowsRaw = await CourseProgress.find({ course: { $in: courseIds } })
+    .populate("student", "name email")
+    .populate("course", "name")
+    .sort({ updatedAt: -1 })
+    .limit(24)
+    .lean();
+
+  type ProgressRow = {
+    _id: string;
+    studentName: string;
+    studentEmail: string;
+    courseName: string;
+    completedVideos: number;
+    totalVideos: number;
+    percentageCompleted: number;
+    updatedAt?: Date | string;
+  };
+
+  const progressRows: ProgressRow[] = progressRowsRaw.map((row: any) => {
+    const courseIdStr = row.course?._id?.toString?.() || row.course?.toString?.() || "";
+    const totalVideos = videosMap.get(courseIdStr) || 0;
+    const completedVideos = row.completedVideos?.length || 0;
+    return {
+      _id: row._id.toString(),
+      studentName: row.student?.name || "Student",
+      studentEmail: row.student?.email || "",
+      courseName: row.course?.name || "Course",
+      completedVideos,
+      totalVideos,
+      percentageCompleted:
+        totalVideos > 0
+          ? Math.round((completedVideos / totalVideos) * 10000) / 100
+          : row.percentageCompleted || 0,
+      updatedAt: row.updatedAt,
+    };
+  });
+
   // Fetch all active sales for teacher's courses using API route
   async function fetchSaleForCourse(courseId: string): Promise<SaleData | null> {
     try {
@@ -407,6 +454,52 @@ export default async function TeacherDashboard() {
           <RefundRequestsSection initialRequests={refundRequests} />
         </div>
       )}
+
+      {/* Student Video Progress */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">Student Video Progress</h2>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Progress Updates</CardTitle>
+            <CardDescription>
+              Track how students are progressing through your course videos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {progressRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No student progress data yet. Once students start watching, progress will appear here.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {progressRows.map((row) => (
+                  <div key={row._id} className="rounded border p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-medium">{row.studentName}</p>
+                        <p className="text-xs text-muted-foreground">{row.studentEmail}</p>
+                      </div>
+                      <Badge variant="outline">{row.percentageCompleted.toFixed(1)}%</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">{row.courseName}</p>
+                    <div className="w-full bg-muted rounded h-2">
+                      <div
+                        className="bg-primary h-2 rounded"
+                        style={{ width: `${Math.max(0, Math.min(100, row.percentageCompleted))}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {row.completedVideos} / {row.totalVideos} videos completed
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* My Courses Section */}
       <div className="mb-8">

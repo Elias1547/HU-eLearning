@@ -26,7 +26,6 @@ import {
   PlusCircle,
   Star,
 } from "lucide-react";
-import { Label } from "@radix-ui/react-dropdown-menu";
 import AnnauncementBell from "./annauncementBell";
 import { ModeToggle } from "./ui/toggle";
 
@@ -87,22 +86,6 @@ const roleNavConfigs = {
   },
 };
 
-const studentNavConfig = {
-  mainNav: [
-    { href: "/", label: "Home" },
-    { href: "/courses", label: "Courses" },
-    { href: "/reviews", label: "Reviews" },
-    { href: "/about", label: "About" },
-  
-  ],
-  dropdownItems: [
-    { href: "/student/dashboard", label: "Dashboard" },
-    { href: "/student/my-courses", label: "My Courses" },
-    { href: "/student/profile", label: "Profile" },
-  ],
-};
-
-
 // Default navigation config for users with no role or unauthenticated
 const defaultNavConfig = {
   mainNav: [
@@ -142,8 +125,8 @@ export function Navbar() {
   // Only show user dropdown if authenticated and session exists
   const showUserDropdown = status === "authenticated" && !!session?.user;
 
-  // Only show Sign In/Get Started if NOT authenticated and NOT loading
-  const showAuthButtons = status !== "authenticated";
+  // Show auth actions whenever there is no signed-in user, including the initial loading state.
+  const showAuthButtons = !showUserDropdown;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -170,16 +153,16 @@ export function Navbar() {
            {session?.user?.role === "student" && <AnnauncementBell /> }
         </div>
 
-        <div className="flex items-center gap-4 lg: justify-end">
+        <div className="flex items-center gap-2 sm:gap-4 lg:justify-end">
           {showAuthButtons && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <Link href="/role">
                 <Button variant="outline" size="sm">
                   Sign In
                 </Button>
               </Link>
-              <Link href="/role">
-                <Button size="sm">Get Started</Button>
+              <Link href="/role?tab=signup">
+                <Button size="sm">Register</Button>
               </Link>
             </div>
           )}
@@ -250,20 +233,17 @@ export function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-                <Button
+            </div>
+          )}
+          <Button
             variant="ghost"
             size="sm"
             className="md:hidden"
             onClick={toggleMenu}
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
-            {isMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-            </div>
-          )}
 
       
         
@@ -300,11 +280,11 @@ export function Navbar() {
                     Sign In
                   </Link>
                   <Link
-                    href="/role"
+                    href="/role?tab=signup"
                     className="block text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
                     onClick={toggleMenu}
                   >
-                    Get Started
+                    Register
                   </Link>
                 </div>
               )}

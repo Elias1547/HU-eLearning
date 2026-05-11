@@ -26,6 +26,11 @@ export default function RolePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "signup") {
+      setActiveTab("signup");
+    }
+
     // Check if admin exists
     const checkAdmin = async () => {
       try {

@@ -1,8 +1,28 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "./ui/button"
+import { Badge } from "./ui/badge"
 import { toast } from "sonner"
+
+type SubmissionItem = {
+  _id: string
+  fileUrl: string
+  graded?: boolean
+  studentId?: { name?: string }
+  assignmentId?: { _id?: string } | string
+}
+
+type AssignmentItem = {
+  _id: string
+  title: string
+  description?: string
+  dueDate: string
+  fileUrl?: string
+  mySubmission?: SubmissionItem
+  submissions?: SubmissionItem[]
+}
 
 export default function AssignmentSection({
   courseId,
@@ -11,7 +31,7 @@ export default function AssignmentSection({
   courseId: string
   isTeacher: boolean
 }) {
-  const [assignments, setAssignments] = useState<any[]>([])
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([])
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -20,7 +40,7 @@ export default function AssignmentSection({
   const [uploadProgress, setUploadProgress] = useState(0)
 
   // ✅ Fetch assignments + submissions
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       const assignmentRes = await fetch(
         `/api/assignments?courseId=${courseId}`
@@ -39,9 +59,9 @@ export default function AssignmentSection({
         )
         const submissionData = await submissionRes.json()
 
-        const merged = assignmentData.map((assignment: any) => {
+        const merged = (assignmentData as AssignmentItem[]).map((assignment) => {
           const relatedSubs = submissionData.filter(
-            (sub: any) =>
+            (sub: SubmissionItem) =>
               sub.assignmentId?._id === assignment._id ||
               sub.assignmentId === assignment._id
           )
@@ -54,55 +74,67 @@ export default function AssignmentSection({
 
         setAssignments(merged)
       } else {
-        setAssignments(assignmentData)
+        setAssignments(assignmentData as AssignmentItem[])
       }
     } catch (error) {
       console.error("Fetch failed:", error)
       setAssignments([])
     }
-  }
+  }, [courseId, isTeacher])
 
   useEffect(() => {
     fetchAssignments()
-  }, [courseId])
+  }, [fetchAssignments])
 
   // ✅ Upload file to Cloudinary
-  const uploadFileToCloud = async (): Promise<string | null> => {
-    if (!file) return null
+const uploadFileToCloud = async (): Promise<string | null> => {
+  if (!file) return null
 
-    return new Promise((resolve, reject) => {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append(
-        "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
-      )
+  return new Promise((resolve, reject) => {
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append(
+      "upload_preset",
+      (process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "").trim()
+    )
 
-      const xhr = new XMLHttpRequest()
+    const xhr = new XMLHttpRequest()
 
-      xhr.open(
-        "POST",
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`
-      )
+    xhr.open(
+      "POST",
+      `https://api.cloudinary.com/v1_1/${(process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "").trim()}/auto/upload`
+    )
 
-      xhr.upload.onprogress = event => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100)
-          setUploadProgress(percent)
-        }
+    xhr.upload.onprogress = event => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100)
+        setUploadProgress(percent)
+      }
+    }
+
+    xhr.onload = () => {
+      const response = JSON.parse(xhr.responseText)
+
+      if (xhr.status !== 200) {
+        console.error("Cloudinary error:", response)
+        toast.error(response.error?.message || "Upload failed")
+        reject(response)
+        return
       }
 
-      xhr.onload = () => {
-        const response = JSON.parse(xhr.responseText)
-        resolve(response.secure_url)
-        toast.success("Assignment created successfully!")
+      if (!response.secure_url) {
+        reject("No file URL returned")
+        return
       }
 
-      xhr.onerror = () => reject("Upload failed")
+      resolve(response.secure_url)
+    }
 
-      xhr.send(formData)
-    })
-  }
+    xhr.onerror = () => reject("Upload failed")
+
+    xhr.send(formData)
+  })
+}
 
   const createAssignment = async () => {
     try {
@@ -112,8 +144,8 @@ export default function AssignmentSection({
       if (file) {
         fileUrl = await uploadFileToCloud()
       }
-
       await fetch("/api/assignments", {
+        
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -203,13 +235,39 @@ export default function AssignmentSection({
               </p>
 
               {a.fileUrl && (
-                <a
-                  href={a.fileUrl}
-                  target="_blank"
-                  className=" underline text-sm block mt-2  text-gray-400"
-                >
-                  📄 View Uploaded Assignment File
-                </a>
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded border bg-muted/20 p-2">
+                  <span className="text-sm font-medium">Assignment file:</span>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={a.fileUrl} target="_blank" rel="noopener noreferrer">
+                      View
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <a href={a.fileUrl} download>
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              )}
+
+              {!isTeacher && a.mySubmission?.fileUrl && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded border bg-muted/20 p-2">
+                  <span className="text-sm font-medium">Your submitted file:</span>
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      href={a.mySubmission.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View Submission
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <a href={a.mySubmission.fileUrl} download>
+                      Download Submission
+                    </a>
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -233,13 +291,13 @@ export default function AssignmentSection({
          {isTeacher && (
   <div className="mt-3">
     {!a.submissions || a.submissions.length === 0 ? (
-      <span className="px-3 py-1 text-xs rounded bg-gray-100 text-gray-500">
+      <Badge variant="secondary">
         Assignment Not Submitted Yet
-      </span>
+      </Badge>
     ) : (
       <Button
         onClick={async () => {
-          await fetch(`/api/submissions/grade-all`, {
+          await fetch(`/api/assignments/${a._id}/grade-all`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -251,13 +309,13 @@ export default function AssignmentSection({
           fetchAssignments()
         }}
         className={`px-3 py-1 text-xs rounded ${
-          a.submissions.some((s: any) => !s.graded)
+          a.submissions.some((s) => !s.graded)
             ? "bg-yellow-100 text-yellow-700"
             : "bg-green-100 text-green-700"
         }`}
       >
-        {a.submissions.some((s: any) => !s.graded)
-          ? `${a.submissions.filter((s: any) => !s.graded).length} Not Graded`
+        {a.submissions.some((s) => !s.graded)
+          ? `${a.submissions.filter((s) => !s.graded).length} Waiting for Grade`
           : "All Graded"}
       </Button>
     )}
@@ -269,28 +327,57 @@ export default function AssignmentSection({
             <div className="mt-4 border-t pt-3">
               <h3 className="font-medium mb-2">Submissions</h3>
 
-              {a.submissions.map((sub: any) => (
+              {a.submissions.map((sub) => (
                 <div
                   key={sub._id}
                   className="flex justify-between items-center border p-2 mb-2 rounded"
                 >
-                  <a
-                    href={sub.fileUrl}
-                    target="_blank"
-                    className="underline text-sm block mt-2  text-gray-400"
-                  >
-                    {sub.studentId?.name || "Student"} - View Submission
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm">
+                      {sub.studentId?.name || "Student"} submission:
+                    </span>
+                    <Button asChild size="sm" variant="outline">
+                      <Link
+                        href={sub.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm">
+                      <a href={sub.fileUrl} download>
+                        Download
+                      </a>
+                    </Button>
+                  </div>
 
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      sub.graded
-                        ? "bg-green-100 text-green-600"
-                        : "bg-yellow-100 text-yellow-600"
-                    }`}
-                  >
-                    {sub.graded ? "Graded" : "Not Graded"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded ${
+                        sub.graded
+                          ? "bg-green-100 text-green-600"
+                          : "bg-yellow-100 text-yellow-600"
+                      }`}
+                    >
+                      {sub.graded ? "Graded" : "Waiting for Grade"}
+                    </span>
+                    {!sub.graded && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          await fetch(`/api/submissions/${sub._id}/grade`, {
+                            method: "PATCH",
+                          })
+                          toast.success("Submission marked graded")
+                          fetchAssignments()
+                        }}
+                      >
+                        Mark Graded
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
