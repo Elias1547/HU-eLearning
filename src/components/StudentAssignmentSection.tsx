@@ -1,28 +1,51 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import Countdown from "./countdown"
 import { Button } from "./ui/button"
+import { Badge } from "./ui/badge"
+
+type SubmissionInfo = {
+  _id?: string
+  fileUrl?: string
+  graded?: boolean
+  grade?: number
+  score?: number
+}
+
+type StudentAssignment = {
+  _id: string
+  title: string
+  dueDate: string
+  fileUrl?: string
+  mySubmission?: SubmissionInfo | null
+}
 
 export default function StudentAssignmentSection({
   courseId,
 }: {
   courseId: string
 }) {
-  const [assignments, setAssignments] = useState<any[]>([])
+  const [assignments, setAssignments] = useState<StudentAssignment[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     const res = await fetch(`/api/assignments/student?courseId=${courseId}`)
     const data = await res.json()
-    setAssignments(Array.isArray(data) ? data : [])
-  }
+    setAssignments(Array.isArray(data) ? (data as StudentAssignment[]) : [])
+  }, [courseId])
 
   useEffect(() => {
     fetchAssignments()
-  }, [courseId])
+  }, [fetchAssignments])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAssignments()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [fetchAssignments])
   
 
   // Upload to Cloudinary
@@ -33,11 +56,11 @@ export default function StudentAssignmentSection({
     formData.append("file", file)
     formData.append(
       "upload_preset",
-      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+      (process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "").trim()
     )
 
     const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
+      `https://api.cloudinary.com/v1_1/${(process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "").trim()}/auto/upload`,
       {
         method: "POST",
         body: formData,
@@ -47,6 +70,12 @@ export default function StudentAssignmentSection({
      
 
     const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data?.error?.message || "Cloudinary upload failed")
+    }
+    if (!data?.secure_url) {
+      throw new Error("Cloudinary did not return a file URL")
+    }
     return data.secure_url
   
   
@@ -56,7 +85,14 @@ export default function StudentAssignmentSection({
     if (!file) return
 
     setUploading(true)
-    const fileUrl = await uploadFileToCloud()
+    let fileUrl: string | null = null
+    try {
+      fileUrl = await uploadFileToCloud()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cloudinary upload failed")
+      setUploading(false)
+      return
+    }
 
     await fetch("/api/submissions", {
       method: "POST",
@@ -82,6 +118,20 @@ export default function StudentAssignmentSection({
     return `${hours}h ${minutes}m remaining`
   }
 
+  const handleStatusBadgeClick = (assignment: StudentAssignment) => {
+    if (!assignment.mySubmission) {
+      toast.info(`"${assignment.title}" is not submitted yet.`)
+      return
+    }
+    if (assignment.mySubmission.graded) {
+      const score =
+        assignment.mySubmission.score ?? assignment.mySubmission.grade ?? "N/A"
+      toast.success(`"${assignment.title}" graded. Score: ${score}`)
+      return
+    }
+    toast.message(`"${assignment.title}" is submitted and waiting for grade.`)
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-xl font-semibold mb-4">My Assignments</h1>
@@ -105,29 +155,85 @@ export default function StudentAssignmentSection({
      
           {/* Assignment File */}
           {a.fileUrl && (
-            <a
-              href={a.fileUrl}
-              target="_blank"
-              className="underline text-sm block mt-2 text-gray-400"
-            >
-              📄 View Assignment File
-            </a>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded border bg-muted/20 p-2">
+              <span className="text-sm font-medium">Assignment file:</span>
+              <Button asChild size="sm" variant="outline">
+                <a href={a.fileUrl} target="_blank" rel="noopener noreferrer">
+                  View
+                </a>
+              </Button>
+              <Button asChild size="sm">
+                <a href={a.fileUrl} download>
+                  Download
+                </a>
+              </Button>
+            </div>
+          )}
+
+          {a.mySubmission?.fileUrl && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded border bg-muted/20 p-2">
+              <span className="text-sm font-medium">Your submitted file:</span>
+              <Button asChild size="sm" variant="outline">
+                <a href={a.mySubmission.fileUrl} target="_blank" rel="noopener noreferrer">
+                  View Submission
+                </a>
+              </Button>
+              <Button asChild size="sm">
+                <a href={a.mySubmission.fileUrl} download>
+                  Download Submission
+                </a>
+              </Button>
+            </div>
           )}
 
           {/* Status Badge */}
           <div className="mt-3">
             {!a.mySubmission ? (
-              <span className="px-3 py-1 text-xs rounded bg-gray-100 text-gray-500">
+              <Badge
+                variant="secondary"
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer"
+                onClick={() => handleStatusBadgeClick(a)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleStatusBadgeClick(a)
+                  }
+                }}
+              >
                 Not Submitted
-              </span>
+              </Badge>
             ) : a.mySubmission.graded ? (
-              <span className="px-3 py-1 text-xs rounded bg-green-100 text-green-600">
+              <Badge
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer bg-green-100 text-green-700 hover:bg-green-100/90"
+                onClick={() => handleStatusBadgeClick(a)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleStatusBadgeClick(a)
+                  }
+                }}
+              >
                 Graded — Score: {a.mySubmission.score ?? "N/A"}
-              </span>
+              </Badge>
             ) : (
-              <span className="px-3 py-1 text-xs rounded bg-yellow-100 text-yellow-600">
+              <Badge
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer bg-yellow-100 text-yellow-700 hover:bg-yellow-100/90"
+                onClick={() => handleStatusBadgeClick(a)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleStatusBadgeClick(a)
+                  }
+                }}
+              >
                 Submitted (Waiting for Grade)
-              </span>
+              </Badge>
             )}
           </div>
 
