@@ -148,6 +148,15 @@ return NextResponse.json({
     ? new Date(progressDoc.updatedAt).toISOString()
     : null,
 })
+
+  } catch (error) {
+    console.error("Error fetching student progress:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch progress" },
+      { status: 500 }
+    )
+  }
+}
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ courseId: string }> }
@@ -223,8 +232,6 @@ export async function POST(
 progress.lastAccessedVideo = key
 progress.updatedAt = new Date()
 await progress.save()
-    progress.updatedAt = new Date()
-    await progress.save()
 
     const refreshed = await recalculateAndSaveCourseProgress(session.user.id, courseId)
 
