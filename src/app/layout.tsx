@@ -4,8 +4,7 @@ import "./globals.css";
 import AuthProvider from "@/lib/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import { LmsAppShell } from "@/components/layout/lms-app-shell";
 import { Breadcrumbs } from "@/components/navbar-breadcrumb";
 
 const geistSans = Geist({
@@ -50,18 +49,22 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <AuthProvider>
-          <ThemeProvider   attribute="class"
+          <ThemeProvider
+            attribute="class"
             defaultTheme="system"
             enableSystem
-            disableTransitionOnChange>
-            <div className="flex flex-col min-h-screen">
-              <Navbar />
-              <Breadcrumbs />
-              {children}
-              <Footer />
+            disableTransitionOnChange
+          >
+            <div className="flex min-h-screen flex-col bg-background">
+              <LmsAppShell>
+                <>
+                  <Breadcrumbs />
+                  <div className="flex-1 bg-muted/20 dark:bg-muted/10">{children}</div>
+                </>
+              </LmsAppShell>
             </div>
             <Toaster />
           </ThemeProvider>

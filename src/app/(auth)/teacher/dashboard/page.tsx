@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, BarChart3, RefreshCw, Video } from "lucide-react";
+import { BookOpen, DollarSign, Users, Star, Plus, Eye, EyeOff, BarChart3, RefreshCw, Video, MessageCircle } from "lucide-react";
 import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
 import React from "react";
@@ -296,144 +296,204 @@ export default async function TeacherDashboard() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {teacher.name}!</h1>
-          <p className="text-muted-foreground">Manage your courses and track your teaching performance</p>
-          <div className="mt-2 flex flex-wrap gap-4 items-center">
-            <span className="text-sm text-muted-foreground">Email: {teacher.email}</span>
-            <span className="text-sm text-muted-foreground">UPI ID: {teacher.upiId}</span>
-            {teacher.age && <span className="text-sm text-muted-foreground">Age: {teacher.age}</span>}
-            {teacher.phone && <span className="text-sm text-muted-foreground">Phone: {teacher.phone}</span>}
-            {teacher.website && (
-              <a
-                href={teacher.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 underline"
-              >
-                Website
-              </a>
-            )}
-            {teacher.bio && <span className="text-sm text-muted-foreground">Bio: {teacher.bio}</span>}
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8 flex flex-col gap-6 rounded-2xl border border-border/70 bg-card/80 p-6 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-sm dark:bg-card/50 dark:ring-white/[0.04] sm:p-8 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Instructor workspace
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Welcome back, {teacher.name}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Manage courses, review refunds, and monitor learner progress from one calm overview.
+            </p>
           </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground sm:text-sm">
+            <span className="font-medium text-foreground/80">{teacher.email}</span>
+            <span aria-hidden className="hidden text-border sm:inline">
+              ·
+            </span>
+            <span>UPI: {teacher.upiId}</span>
+            {teacher.age && (
+              <>
+                <span aria-hidden className="hidden text-border sm:inline">
+                  ·
+                </span>
+                <span>Age: {teacher.age}</span>
+              </>
+            )}
+            {teacher.phone && (
+              <>
+                <span aria-hidden className="hidden text-border sm:inline">
+                  ·
+                </span>
+                <span>{teacher.phone}</span>
+              </>
+            )}
+            {teacher.website && (
+              <>
+                <span aria-hidden className="hidden text-border sm:inline">
+                  ·
+                </span>
+                <a
+                  href={teacher.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Website
+                </a>
+              </>
+            )}
+          </div>
+          {teacher.bio && (
+            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{teacher.bio}</p>
+          )}
         </div>
-        <Link href="/teacher/courses/create">
-          <Button className="gap-2">
+        <Link href="/teacher/courses/create" className="shrink-0">
+          <Button className="gap-2 font-semibold shadow-sm">
             <Plus className="h-4 w-4" />
-            Create New Course
+            Create course
           </Button>
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card>
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5 lg:gap-5">
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Courses</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Total courses
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <BookOpen className="mr-2 h-4 w-4 text-blue-600" />
-              <span className="text-2xl font-bold">{courses.length}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{courses.length}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{publishedCourses} published</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Total students
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Users className="mr-2 h-4 w-4 text-green-600" />
-              <span className="text-2xl font-bold">{totalStudents}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                <Users className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{totalStudents}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Across all courses</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Total revenue
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <DollarSign className="mr-2 h-4 w-4 text-purple-600" />
-              <span className="text-2xl font-bold">₹{totalRevenue.toLocaleString()}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                <DollarSign className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">₹{totalRevenue.toLocaleString()}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Lifetime earnings</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Average Rating</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Average rating
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Star className="mr-2 h-4 w-4 text-yellow-600" />
-              <span className="text-2xl font-bold">{averageRating.toFixed(1)}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300">
+                <Star className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{averageRating.toFixed(1)}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">From {reviews.length} reviews</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Refunds</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Pending refunds
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
-              <span className="text-2xl font-bold">{pendingRefunds}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/10 text-orange-800 dark:text-orange-300">
+                <RefreshCw className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{pendingRefunds}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid md:grid-cols-4 gap-4 mb-8">
+      <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Link href="/teacher/courses/create">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <Plus className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">Create Course</h3>
-              <p className="text-sm text-muted-foreground">Start a new course</p>
+              <Plus className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Create course</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Start a new course</p>
             </CardContent>
           </Card>
         </Link>
 
         <Link href="/teacher/courses">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <BookOpen className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">My Courses</h3>
-              <p className="text-sm text-muted-foreground">Manage existing courses</p>
+              <BookOpen className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">My courses</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Manage existing courses</p>
             </CardContent>
           </Card>
         </Link>
 
         <Link href="/teacher/live-classes">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <Video className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">Live Classes</h3>
-              <p className="text-sm text-muted-foreground">Manage live streaming</p>
+              <Video className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Live classes</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Manage live streaming</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/teacher/message">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+            <CardContent className="p-6 text-center">
+              <MessageCircle className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Messages</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Chat with students</p>
             </CardContent>
           </Card>
         </Link>
 
         <Link href="/teacher/reviews">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">Reviews</h3>
-              <p className="text-sm text-muted-foreground">View all your reviews</p>
+              <BarChart3 className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Reviews</h3>
+              <p className="mt-1 text-sm text-muted-foreground">View all your reviews</p>
             </CardContent>
           </Card>
         </Link>
@@ -442,8 +502,8 @@ export default async function TeacherDashboard() {
       {/* Refund Requests Section */}
       {refundRequests.length > 0 && (
         <div className="mb-8 my-1">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Refund Requests</h2>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Refund requests</h2>
             {pendingRefunds > 0 && (
               <Badge variant="destructive" className="text-sm">
                 {pendingRefunds} Pending
@@ -456,9 +516,9 @@ export default async function TeacherDashboard() {
       )}
 
       {/* Student Video Progress */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Student Video Progress</h2>
+     {/*  <div className="mb-8">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Student video progress</h2>
         </div>
         <Card>
           <CardHeader>
@@ -499,19 +559,21 @@ export default async function TeacherDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </div> */}
 
       {/* My Courses Section */}
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">My Courses</h2>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">My courses</h2>
           <Link href="/teacher/courses">
-            <Button variant="outline">View All Courses</Button>
+            <Button variant="outline" className="font-semibold">
+              View all courses
+            </Button>
           </Link>
         </div>
 
         {courses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {courses.slice(0, 6).map((course: ICourse) => {
               // Count students for this course
               const courseStudents = course.studentsPurchased?.length || 0;
@@ -530,7 +592,10 @@ export default async function TeacherDashboard() {
               // Sale logic
               const sale = sales[course._id.toString()];
               return (
-                <Card key={course._id.toString()} className="overflow-hidden hover:shadow-md transition-shadow relative">
+                <Card
+                  key={course._id.toString()}
+                  className="relative overflow-hidden border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
+                >
                   <div className="aspect-video relative bg-muted">
                     <Image
                       src={
@@ -623,7 +688,7 @@ export default async function TeacherDashboard() {
       {/* Recent Reviews */}
       {reviews.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold mb-6">Recent Reviews</h2>
+          <h2 className="mb-6 text-xl font-bold tracking-tight sm:text-2xl">Recent reviews</h2>
           <div className="grid md:grid-cols-2 gap-4">
             {reviews.slice(0, 4).map((review: IReview) => (
               <Card key={review._id.toString()}>

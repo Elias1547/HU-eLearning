@@ -52,6 +52,7 @@ export default function RolePage() {
       toast.warning(
         "Admin Already Exists : Only one admin account is allowed in the system."
       );
+       
       return;
     }
 
@@ -63,20 +64,25 @@ export default function RolePage() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen py-12">
-      <div className="container max-w-md px-4">
+    <div className="relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-lms-mesh py-12">
+      <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.35]" />
+      <div className="container relative max-w-md px-4">
         <Tabs
           defaultValue="signin"
           value={activeTab}
           onValueChange={setActiveTab}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          <TabsList className="mb-6 grid w-full grid-cols-2 rounded-xl border border-border/60 bg-muted/40 p-1">
+            <TabsTrigger value="signin" className="rounded-lg font-semibold">
+              Sign in
+            </TabsTrigger>
+            <TabsTrigger value="signup" className="rounded-lg font-semibold">
+              Sign up
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="signin">
-            <Card>
+            <Card className="border-border/70 bg-card/95 shadow-xl ring-1 ring-black/[0.04] backdrop-blur-md dark:bg-card/60 dark:ring-white/[0.06]">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl">Sign In</CardTitle>
                 <CardDescription>Choose your role to sign in</CardDescription>
@@ -123,11 +129,11 @@ export default function RolePage() {
                 </Button>
               </CardContent>
               <CardFooter className="flex justify-center">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm  text-muted-foreground">
                   Don&apos;t have an account?{" "}
                   <Button
                     onClick={() => setActiveTab("signup")}
-                    className="text-primary underline cursor-pointer"
+                    className="text-primary text-white underline cursor-pointer"
                   >
                     Sign up
                   </Button>
@@ -136,7 +142,7 @@ export default function RolePage() {
             </Card>
           </TabsContent>
           <TabsContent value="signup">
-            <Card>
+            <Card className="border-border/70 bg-card/95 shadow-xl ring-1 ring-black/[0.04] backdrop-blur-md dark:bg-card/60 dark:ring-white/[0.06]">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl">Create an Account</CardTitle>
                 <CardDescription>Choose your role to sign up</CardDescription>
@@ -169,7 +175,7 @@ export default function RolePage() {
                   </div>
                 </Button>
                 {(!adminExists || isLoading) && (
-                  <Button
+               <Button
                     variant="outline"
                     className="w-full justify-start h-auto py-4"
                     onClick={() => handleRoleSelect("admin")}
@@ -184,13 +190,14 @@ export default function RolePage() {
                     </div>
                   </Button>
                 )}
+                  
               </CardContent>
               <CardFooter className="flex justify-center">
                 <p className="text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Button
                     onClick={() => setActiveTab("signin")}
-                    className="text-primary underline cursor-pointer"
+                    className="text-primary text-white underline cursor-pointer"
                   >
                     Sign in
                   </Button>

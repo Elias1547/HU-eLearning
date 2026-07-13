@@ -1,27 +1,14 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Clock,
-  Users,
-  Calendar,
-  SortAsc,
-  SortDesc,
-} from "lucide-react";
+import { SortAsc, SortDesc } from "lucide-react";
 import dbConnect from "@/lib/dbConnect";
 import { Course } from "@/models/course";
 import { Sale } from "@/models/sales";
 import { Suspense } from "react";
 import { DebouncedSearchInput } from "@/components/courses/debounced-search-input";
-import { SaleTimer, SalePriceBlock } from "@/components/courses/course-sales";
+import { CourseCard } from "@/components/courses/course-card";
+import { CourseCategoryRail } from "@/components/courses/course-category-rail";
 
 interface Teacher {
   _id: string;
@@ -43,6 +30,7 @@ interface CourseType {
   name: string;
   description: string;
   imageUrl?: string;
+  category?: string;
   duration: string;
   createdAt: string;
   price: number;
@@ -66,6 +54,7 @@ interface CourseMapped {
   name: string;
   description: string;
   imageUrl: string;
+  category: string;
   duration: string;
   createdAt: string;
   price: number;
@@ -148,6 +137,7 @@ async function getAllCourses(
         name: course.name,
         description: course.description,
         imageUrl: course.imageUrl || "",
+        category: course.category || "",
         duration: course.duration,
         createdAt: course.createdAt.toString(),
         price: course.price,
@@ -230,134 +220,88 @@ export default async function AllCoursesPage({
     })
   );
 
+  const categoryLabels = coursesWithEnrollment.map((c) => c.category);
+
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">All Courses</h1>
-          <p className="text-muted-foreground mt-2">
-            Browse our collection of {coursesWithEnrollment.length} courses
-            taught by expert instructors
-          </p>
+    <div className="mx-auto max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+      <div className="rounded-2xl border border-border/70 bg-card/80 p-6 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-sm dark:bg-card/50 dark:ring-white/[0.04] sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Catalog
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              All courses
+            </h1>
+            <p className="text-muted-foreground">
+              {coursesWithEnrollment.length} published course
+              {coursesWithEnrollment.length === 1 ? "" : "s"} available right now.
+            </p>
+          </div>
+          <div className="w-full lg:max-w-md">
+            <Suspense fallback={null}>
+              <DebouncedSearchInput
+                defaultValue={searchQuery || ""}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+              />
+            </Suspense>
+          </div>
         </div>
 
-        {/* Search form with debounce (client component) */}
-        <div className="w-full md:w-auto">
-          <Suspense fallback={null}>
-            <DebouncedSearchInput
-              defaultValue={searchQuery || ""}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
-            />
-          </Suspense>
-        </div>
-      </div>
-
-      {/* Sorting options */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {[
-          { label: "Newest", value: "createdAt" },
-          { label: "Price", value: "price" },
-          { label: "Name", value: "name" },
-        ].map((sort) => (
-          <Badge
-            key={sort.value}
-            variant={sortBy === sort.value ? "default" : "outline"}
-            className="cursor-pointer"
-          >
-            <Link
-              href={`/courses?sort=${sort.value}&order=${
-                sortBy === sort.value && sortOrder === "desc" ? "asc" : "desc"
-              }${
-                searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""
-              }`}
-              className="flex items-center"
+        <div className="mt-6 flex flex-wrap gap-2">
+          {[
+            { label: "Newest", value: "createdAt" },
+            { label: "Price", value: "price" },
+            { label: "Name", value: "name" },
+          ].map((sort) => (
+            <Badge
+              key={sort.value}
+              variant={sortBy === sort.value ? "default" : "outline"}
+              className="cursor-pointer rounded-full px-3 py-1 text-xs font-semibold"
             >
-              {sort.label}
-              {sortBy === sort.value &&
-                (sortOrder === "desc" ? (
-                  <SortDesc className="ml-1 h-3 w-3" />
-                ) : (
-                  <SortAsc className="ml-1 h-3 w-3" />
-                ))}
-            </Link>
-          </Badge>
-        ))}
+              <Link
+                href={`/courses?sort=${sort.value}&order=${
+                  sortBy === sort.value && sortOrder === "desc" ? "asc" : "desc"
+                }${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""}`}
+                className="flex items-center"
+              >
+                {sort.label}
+                {sortBy === sort.value &&
+                  (sortOrder === "desc" ? (
+                    <SortDesc className="ml-1 h-3 w-3" />
+                  ) : (
+                    <SortAsc className="ml-1 h-3 w-3" />
+                  ))}
+              </Link>
+            </Badge>
+          ))}
+        </div>
       </div>
+
+      <CourseCategoryRail categories={categoryLabels} className="mt-10" />
 
       {coursesWithEnrollment.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {coursesWithEnrollment.map((course) => (
-            <Card
+            <CourseCard
               key={course._id}
-              className="flex flex-col h-full overflow-hidden hover:shadow-md transition-shadow relative"
-            >
-              <div className="aspect-video relative bg-muted">
-                <Image
-                  src={
-                    course.imageUrl ||
-                    `/placeholder.svg?height=200&width=400&text=${encodeURIComponent(
-                      course.name
-                    )}`
-                  }
-                  alt={course.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xl line-clamp-2">
-                  {course.name}
-                </CardTitle>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <span>By {course.teacher.name}</span>
-                </div>
-              </CardHeader>
-
-              <CardContent className="flex-grow">
-                <p className="text-muted-foreground line-clamp-3 mb-4">
-                  {course.description}
-                </p>
-
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <Badge variant="outline" className="text-xs">
-                    <Clock className="mr-1 h-3 w-3" /> {course.duration}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    <Calendar className="mr-1 h-3 w-3" />{" "}
-                    {new Date(course.createdAt).toLocaleDateString()}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    <Users className="mr-1 h-3 w-3" />{" "}
-                    {course.enrollmentCount} enrolled
-                  </Badge>
-                </div>
-              </CardContent>
-
-              <CardFooter className="flex justify-between items-center border-t pt-4">
-                <div className="font-bold text-lg">
-                  {course.sale ? (
-                    <>
-                      <SalePriceBlock sale={course.sale} price={course.price} />
-                      <SaleTimer expiryTime={course.sale.expiryTime} />
-                    </>
-                  ) : course.price === 0 ? (
-                    "Free"
-                  ) : (
-                    `₹${course.price}`
-                  )}
-                </div>
-                <Link href={`/courses/${course._id}`}>
-                  <Button>View Course</Button>
-                </Link>
-              </CardFooter>
-            </Card>
+              id={course._id}
+              name={course.name}
+              description={course.description}
+              imageUrl={course.imageUrl}
+              duration={course.duration}
+              createdAt={course.createdAt}
+              price={course.price}
+              enrollmentCount={course.enrollmentCount}
+              instructorName={course.teacher.name}
+              sale={course.sale}
+            />
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 border rounded-lg">
-          <h2 className="text-xl font-medium mb-2">No courses found</h2>
+        <div className="mt-10 rounded-2xl border border-dashed border-border/70 bg-card/60 py-16 text-center">
+          <h2 className="text-xl font-semibold text-foreground">No courses found</h2>
           {searchQuery ? (
             <p className="text-muted-foreground mb-6">
               No courses match your search criteria. Try different keywords or

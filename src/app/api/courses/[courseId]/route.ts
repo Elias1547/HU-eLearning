@@ -10,8 +10,8 @@ import { authOptions } from "@/lib/auth";
 // Schema for course updates
 const courseUpdateSchema = z.object({
   name: z.string().min(3, "Course name must be at least 3 characters").optional(),
-  description: z.string().min(100, "Description must be at least 100 characters").optional(),
-  syllabus: z.string().optional(),
+  description: z.string().min(10, "Description must be at least 10 characters").optional(),
+  syllabus: z.string().min(5, "Syllabus must be at least 5 characters").optional(),
   price: z.number().min(0, "Price cannot be negative").optional(),
   duration: z.string().min(2, "Duration must be specified").optional(),
   imageUrl: z.string().url("Invalid image URL").optional().or(z.literal("")),

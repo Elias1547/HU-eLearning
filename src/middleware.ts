@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-import { redirect } from "next/navigation"
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -34,6 +33,11 @@ export async function middleware(request: NextRequest) {
   // Check if current path is public or auth page
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/courses/")
   const isAuthPage = authPages.includes(pathname)
+
+  // Skip token parsing entirely for standard public pages.
+  if (isPublicRoute && pathname !== "/role") {
+    return NextResponse.next()
+  }
 
   try {
     // Get token with proper configuration
@@ -136,7 +140,7 @@ export async function middleware(request: NextRequest) {
           if (exists) {
             return NextResponse.redirect(new URL("/admin/signin", request.url))
           }
-          redirect("/admin/dashboard")
+          return NextResponse.redirect(new URL("/admin/dashboard", request.url))
         }
       } catch (error) {
         console.error("Error checking admin exists:", error)

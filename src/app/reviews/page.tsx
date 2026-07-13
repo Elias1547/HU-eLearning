@@ -5,6 +5,6 @@ export default function ReviewsPage() {
 }
 
 export const metadata = {
-  title: "Student Reviews - EduLearn",
+  title: "Student Reviews - HUDC e-learning",
   description: "Read what our students say about their learning experience"
 }

@@ -402,12 +402,23 @@ export default async function LearnPage(
                       
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4" />
-                          </Button>
+                          
                         </TooltipTrigger>
-                        <TooltipContent>Download video</TooltipContent>
-                      </Tooltip>
+                        <a
+                        href={currentVideo.url.replace(
+                          "/upload/",
+                          "/upload/fl_attachment/"
+                        )}
+                        download={`${currentVideo.title}.mp4`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                      </a>
+                        </Tooltip>
                     </TooltipProvider>
                   </div>
                 </div>

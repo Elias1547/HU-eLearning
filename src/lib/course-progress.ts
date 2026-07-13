@@ -42,13 +42,13 @@ function normalizeWeights(weights: ProgressWeights, totals: { lessons: number; a
 }
 
 export async function recalculateAndSaveCourseProgress(studentId: string, courseId: string) {
-  const course = await Course.findById(courseId).lean()
+  const course = await (Course as any).findById(courseId).lean()
   if (!course) throw new Error("Course not found")
 
   const [totalVideos, assignmentIds, requiredQuizIds] = await Promise.all([
-    Video.countDocuments({ course: courseId }),
-    Assignment.find({ courseId }).select("_id").lean(),
-    Quiz.find({ course: courseId, published: true, requiredForCertificate: true }).select("_id").lean(),
+    (Video as any).countDocuments({ course: courseId }),
+    (Assignment as any).find({ courseId }).select("_id").lean(),
+    (Quiz as any).find({ course: courseId, published: true, requiredForCertificate: true }).select("_id").lean(),
   ])
 
   const totals = {
@@ -65,7 +65,7 @@ export async function recalculateAndSaveCourseProgress(studentId: string, course
 
   const weights = normalizeWeights(configuredWeights, totals)
 
-  let progress = await CourseProgress.findOne({ student: studentId, course: courseId })
+  let progress = await (CourseProgress as any).findOne({ student: studentId, course: courseId })
   if (!progress) {
     progress = new CourseProgress({
       student: studentId,
@@ -73,6 +73,9 @@ export async function recalculateAndSaveCourseProgress(studentId: string, course
       completedVideos: [],
       submittedAssignments: [],
       passedQuizzes: [],
+      quizProgress: [],
+      videoProgress: {},
+      videoWatchDetails: {},
       percentageCompleted: 0,
     })
   }

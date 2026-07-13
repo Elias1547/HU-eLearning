@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { v2 as cloudinary } from "cloudinary"
 import { dbConnect } from "@/lib/dbConnect"
 import { Video } from "@/models/video"
+import { Course } from "@/models/course"
+import { notifyCourseStudents } from "@/lib/notifications"
 import type mongoose from "mongoose"
 
 // Configure Cloudinary
@@ -116,6 +118,15 @@ export async function POST(req: Request) {
 
     await dbConnect()
 
+    const course = await Course.findById(courseId).select("name teacher").lean()
+    if (!course) {
+      return NextResponse.json({ message: "Course not found" }, { status: 404 })
+    }
+
+    if (session.user.role === "teacher" && course.teacher?.toString() !== session.user.id) {
+      return NextResponse.json({ message: "You can only upload videos to your own courses" }, { status: 403 })
+    }
+
     // Get the uploaded video from Cloudinary
     const folder = `course-videos/${courseId}/${uploadId}`
     const result = await cloudinary.api.resources({
@@ -204,6 +215,13 @@ export async function POST(req: Request) {
     }
 
     const video = await Video.create(videoData) as VideoDocument
+
+    await notifyCourseStudents(courseId, {
+      type: "video_uploaded",
+      title: `New video uploaded in ${course.name}`,
+      link: `/courses/${courseId}/learn/${video._id.toString()}`,
+      data: { videoId: video._id.toString() },
+    }).catch((error) => console.error("Video notification error:", error))
 
     // Update Cloudinary resource with metadata
     await cloudinary.api.update(videoResource.public_id, {

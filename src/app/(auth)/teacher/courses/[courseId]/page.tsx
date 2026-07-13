@@ -284,7 +284,7 @@ export default async function TeacherCoursePage({
                     </p>
                     <VideoUploadModal
                       courseId={courseId}
-                      onSuccess={() => {}}
+                      
                     />
                   </CardContent>
                 </Card>
@@ -433,7 +433,7 @@ export default async function TeacherCoursePage({
               </div>
               {/* Upload button for teachers in sidebar */}
               <div className="flex justify-center">
-                <VideoUploadModal courseId={courseId} onSuccess={() => {}} />
+                <VideoUploadModal courseId={courseId} />
               </div>
             </CardContent>
           </Card>

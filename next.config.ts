@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { hostname } from "os";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -9,6 +10,11 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "marketplace.canva.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "static-cse.canva.com" },
+        {protocol: "https",
+        hostname: "plus.unsplash.com"} ,
+      { protocol: "https",
+        hostname: "images.unsplash.com",
+      },
     ],
   },
   typescript: {

@@ -3,8 +3,8 @@ import { z } from "zod"
 
 const courseSchema = new mongoose.Schema({
   name: { type: String, required: true, minlength: 5 },
-  description: { type: String, required: true, minlength: 100 },
-  syllabus: { type: String, required: true, minlength: 50 },
+  description: { type: String, required: true, minlength: 10 },
+  syllabus: { type: String, required: true, minlength: 5 },
   price: { type: Number, required: true, default: 0 },
   duration: { type: String, required: true, minlength: 2 },
   category: { type: String, required: true },
@@ -22,8 +22,8 @@ export const Course =  mongoose.models?.Course ? mongoose.models.Course : mongoo
 
 export const courseValidationSchema = z.object({
   name: z.string().min(5, "Course name must be at least 5 characters"),
-  description: z.string().min(100, "Description must be at least 100 characters"),
-  syllabus: z.string().min(50, "Syllabus must be at least 50 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  syllabus: z.string().min(5, "Syllabus must be at least 5 characters"),
   price: z.number().min(0, "Price cannot be negative"),
   duration: z.string().min(2, "Duration must be specified"),
   category: z.string().min(1, "Category is required"),
