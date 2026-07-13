@@ -54,87 +54,100 @@ export async function GET(
     const videoOnlyPercent =
       totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 10000) / 100 : 0
 
-<<<<<<< HEAD
-    const videoProgressObj = (progressDoc?.videoProgress || {}) as Record<string, number>
-    const timeSpent = Object.values(videoProgressObj).reduce((sum, v) => sum + (Number(v) || 0), 0)
+const hasBreakdown = !!(progressDoc as { breakdown?: { lessons?: unknown } } | null)?.breakdown?.lessons
 
-    return NextResponse.json({
-      completedVideos,
-      totalVideos,
-      percentageCompleted,
-=======
-    const hasBreakdown = !!(progressDoc as { breakdown?: { lessons?: unknown } } | null)?.breakdown?.lessons
-    const weightedPercent =
-      hasBreakdown && typeof progressDoc?.percentageCompleted === "number"
-        ? progressDoc.percentageCompleted
-        : videoOnlyPercent
+const weightedPercent =
+  hasBreakdown && typeof progressDoc?.percentageCompleted === "number"
+    ? progressDoc.percentageCompleted
+    : videoOnlyPercent
 
-    const videoProgressObj = (progressDoc?.videoProgress || {}) as Record<string, number>
-    const timeSpent = Object.values(videoProgressObj).reduce((sum, v) => sum + (Number(v) || 0), 0)
+const videoProgressObj = (progressDoc?.videoProgress || {}) as Record<string, number>
 
-    const rawDetails = (progressDoc?.videoWatchDetails || {}) as Record<string, Partial<VideoWatchDetail>>
-    const videoWatchDetails: Record<string, VideoWatchDetail> = {}
-    const allVideoIds = new Set([...Object.keys(videoProgressObj), ...Object.keys(rawDetails)])
-    for (const vid of allVideoIds) {
-      const secs = videoProgressObj[vid] ?? 0
-      const meta = rawDetails[vid] || {}
-      const inCompleted = (progressDoc?.completedVideos || []).some((id: unknown) => toIdString(id) === vid)
-      videoWatchDetails[vid] = {
-        percentWatched: typeof meta.percentWatched === "number" ? meta.percentWatched : 0,
-        watchDurationSeconds: typeof meta.watchDurationSeconds === "number" ? meta.watchDurationSeconds : secs,
-        lastWatchedAt: meta.lastWatchedAt ? new Date(meta.lastWatchedAt as string | Date).toISOString() : null,
-        completed: !!meta.completed || inCompleted,
-      }
-    }
+const timeSpent = Object.values(videoProgressObj).reduce(
+  (sum, v) => sum + (Number(v) || 0),
+  0
+)
 
-    const quizProgress: QuizProgressOut[] = ((progressDoc?.quizProgress || []) as unknown[]).map((row) => {
-      const r = row as {
-        quiz?: unknown
-        bestScorePercent?: number
-        latestScorePercent?: number
-        attemptCount?: number
-        passed?: boolean
-        completed?: boolean
-        lastSubmittedAt?: Date
-      }
-      return {
-        quizId: toIdString(r.quiz),
-        bestScorePercent: r.bestScorePercent ?? 0,
-        latestScorePercent: r.latestScorePercent ?? 0,
-        attemptCount: r.attemptCount ?? 0,
-        passed: !!r.passed,
-        completed: !!r.completed,
-        lastSubmittedAt: r.lastSubmittedAt ? new Date(r.lastSubmittedAt).toISOString() : null,
-      }
-    })
+const rawDetails = (progressDoc?.videoWatchDetails || {}) as Record<
+  string,
+  Partial<VideoWatchDetail>
+>
 
-    return NextResponse.json({
-      completedVideos,
-      totalVideos,
-      percentageCompleted: weightedPercent,
-      videoOnlyPercent,
-      lastAccessedVideo: progressDoc?.lastAccessedVideo
-        ? String(progressDoc.lastAccessedVideo)
-        : null,
-      timeSpent,
-      completedVideoIds: (progressDoc?.completedVideos || []).map((id: unknown) =>
-        String(id)
-      ),
-      videoProgress: videoProgressObj,
-      videoWatchDetails,
-      breakdown: progressDoc?.breakdown ?? null,
-      isCourseComplete: !!progressDoc?.isComplete,
-      quizProgress,
-      updatedAt: progressDoc?.updatedAt
-        ? new Date(progressDoc.updatedAt).toISOString()
-        : null,
-    })
-  } catch (error) {
-    console.error("Error fetching student progress:", error)
-    return NextResponse.json({ error: "Failed to fetch progress" }, { status: 500 })
+const videoWatchDetails: Record<string, VideoWatchDetail> = {}
+
+const allVideoIds = new Set([
+  ...Object.keys(videoProgressObj),
+  ...Object.keys(rawDetails),
+])
+
+for (const vid of allVideoIds) {
+  const secs = videoProgressObj[vid] ?? 0
+  const meta = rawDetails[vid] || {}
+  const inCompleted = (progressDoc?.completedVideos || []).some(
+    (id: unknown) => toIdString(id) === vid
+  )
+
+  videoWatchDetails[vid] = {
+    percentWatched:
+      typeof meta.percentWatched === "number" ? meta.percentWatched : 0,
+    watchDurationSeconds:
+      typeof meta.watchDurationSeconds === "number"
+        ? meta.watchDurationSeconds
+        : secs,
+    lastWatchedAt: meta.lastWatchedAt
+      ? new Date(meta.lastWatchedAt as string | Date).toISOString()
+      : null,
+    completed: !!meta.completed || inCompleted,
   }
 }
 
+const quizProgress: QuizProgressOut[] = (
+  (progressDoc?.quizProgress || []) as unknown[]
+).map((row) => {
+  const r = row as {
+    quiz?: unknown
+    bestScorePercent?: number
+    latestScorePercent?: number
+    attemptCount?: number
+    passed?: boolean
+    completed?: boolean
+    lastSubmittedAt?: Date
+  }
+
+  return {
+    quizId: toIdString(r.quiz),
+    bestScorePercent: r.bestScorePercent ?? 0,
+    latestScorePercent: r.latestScorePercent ?? 0,
+    attemptCount: r.attemptCount ?? 0,
+    passed: !!r.passed,
+    completed: !!r.completed,
+    lastSubmittedAt: r.lastSubmittedAt
+      ? new Date(r.lastSubmittedAt).toISOString()
+      : null,
+  }
+})
+
+return NextResponse.json({
+  completedVideos,
+  totalVideos,
+  percentageCompleted: weightedPercent,
+  videoOnlyPercent,
+  lastAccessedVideo: progressDoc?.lastAccessedVideo
+    ? String(progressDoc.lastAccessedVideo)
+    : null,
+  timeSpent,
+  completedVideoIds: (progressDoc?.completedVideos || []).map((id: unknown) =>
+    String(id)
+  ),
+  videoProgress: videoProgressObj,
+  videoWatchDetails,
+  breakdown: progressDoc?.breakdown ?? null,
+  isCourseComplete: !!progressDoc?.isComplete,
+  quizProgress,
+  updatedAt: progressDoc?.updatedAt
+    ? new Date(progressDoc.updatedAt).toISOString()
+    : null,
+})
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ courseId: string }> }
