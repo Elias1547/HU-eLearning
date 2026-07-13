@@ -113,19 +113,21 @@ export async function GET(
       totalVideos,
       percentageCompleted: weightedPercent,
       videoOnlyPercent,
->>>>>>> branch-13
-      lastAccessedVideo: progressDoc?.lastAccessedVideo ? String(progressDoc.lastAccessedVideo) : null,
+      lastAccessedVideo: progressDoc?.lastAccessedVideo
+        ? String(progressDoc.lastAccessedVideo)
+        : null,
       timeSpent,
-      completedVideoIds: (progressDoc?.completedVideos || []).map((id: unknown) => String(id)),
+      completedVideoIds: (progressDoc?.completedVideos || []).map((id: unknown) =>
+        String(id)
+      ),
       videoProgress: videoProgressObj,
-<<<<<<< HEAD
-=======
       videoWatchDetails,
       breakdown: progressDoc?.breakdown ?? null,
       isCourseComplete: !!progressDoc?.isComplete,
       quizProgress,
-      updatedAt: progressDoc?.updatedAt ? new Date(progressDoc.updatedAt).toISOString() : null,
->>>>>>> branch-13
+      updatedAt: progressDoc?.updatedAt
+        ? new Date(progressDoc.updatedAt).toISOString()
+        : null,
     })
   } catch (error) {
     console.error("Error fetching student progress:", error)
@@ -205,15 +207,9 @@ export async function POST(
       progress.completedVideos.push(key)
     }
     progress.lastAccessedVideo = key
-<<<<<<< HEAD
-
-    const totalVideos = await Video.countDocuments({ course: params.courseId })
-    progress.percentageCompleted =
-      totalVideos > 0
-        ? Math.round((progress.completedVideos.length / totalVideos) * 10000) / 100
-        : 0
-=======
->>>>>>> branch-13
+progress.lastAccessedVideo = key
+progress.updatedAt = new Date()
+await progress.save()
     progress.updatedAt = new Date()
     await progress.save()
 
