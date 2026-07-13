@@ -5,6 +5,7 @@ import { Student } from "@/models/student";
 import { Course } from "@/models/course";
 import { Review } from "@/models/review";
 import { RequestRefund } from "@/models/request-refund";
+import { CourseProgress } from "@/models/course-progress";
 import {
   Card,
   CardContent,
@@ -33,6 +34,7 @@ import {
   Calendar,
   FileText,
   Video,
+  MessageCircle,
 } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 
@@ -57,6 +59,16 @@ interface EnrolledCourseType {
   teacher?: TeacherType;
   duration?: string;
   price?: number;
+}
+
+function sumVideoProgressSeconds(vp: unknown): number {
+  if (!vp || typeof vp !== "object") return 0;
+  if (vp instanceof Map) {
+    let s = 0;
+    for (const v of vp.values()) s += Number(v) || 0;
+    return s;
+  }
+  return Object.values(vp as Record<string, number>).reduce((a, b) => a + (Number(b) || 0), 0);
 }
 
 interface RefundRequestType {
@@ -87,6 +99,15 @@ interface RefundRequestType {
   updatedAt: Date;
 }
 
+type DashboardProgressRow = {
+  course?: unknown;
+  percentageCompleted?: number;
+  lastAccessedVideo?: unknown;
+  breakdown?: { lessons?: unknown };
+  isComplete?: boolean;
+  videoProgress?: unknown;
+};
+
 export default async function StudentDashboard() {
   const session = await getServerSession(authOptions);
   if (!session || !session.user || session.user.role !== "student") {
@@ -96,26 +117,26 @@ export default async function StudentDashboard() {
   await dbConnect();
 
   // Fetch student data
-  const student = await Student.findById(session.user.id).lean();
+  const student = await (Student as any).findById(session.user.id).lean();
 
   if (!student) {
     redirect("/role");
   }
 
   // Fetch enrolled courses with teacher info
-  const enrolledCourses: EnrolledCourseType[] = await Course.find({
+  const enrolledCourses: EnrolledCourseType[] = await (Course as any).find({
     _id: { $in: student.purchasedCourses || [] },
   })
     .populate("teacher", "name")
     .lean();
 
   // Fetch student's reviews
-  const reviews: ReviewType[] = await Review.find({ student: student._id })
+  const reviews: ReviewType[] = await (Review as any).find({ student: student._id })
     .populate("course", "name")
     .lean();
 
   // Fetch student's refund requests
-  const refundRequests: RefundRequestType[] = await RequestRefund.find({
+  const refundRequests: RefundRequestType[] = await (RequestRefund as any).find({
     studentId: student._id,
   })
     .populate("courseId", "name price")
@@ -124,9 +145,22 @@ export default async function StudentDashboard() {
     .sort({ createdAt: -1 })
     .lean();
 
+  const courseIds = ((student.purchasedCourses || []) as unknown[]).map((id: unknown) => String(id));
+  const progressRows: DashboardProgressRow[] = courseIds.length
+    ? ((await (CourseProgress as any).find({
+        student: student._id,
+        course: { $in: courseIds },
+      }).lean()) as DashboardProgressRow[])
+    : [];
+  const progressByCourse = new Map(
+    progressRows.map((row: DashboardProgressRow) => [String(row.course), row])
+  );
+
   // Calculate stats
   const totalCourses = enrolledCourses.length;
-  const completedCourses = 0; // Placeholder - would need progress tracking
+  const completedCourses = progressRows.filter(
+    (row: DashboardProgressRow) => !!row.isComplete
+  ).length;
   const totalReviews = reviews.length;
   const pendingRefunds = refundRequests.filter(req => req.requestStatus === "pending").length;
   const acceptedRefunds = refundRequests.filter(req => req.requestStatus === "accepted").length;
@@ -140,31 +174,37 @@ export default async function StudentDashboard() {
         ) / reviews.length
       : 0;
 
-  // Calculate estimated hours (placeholder calculation)
-  const estimatedHours = totalCourses * 10; // Assuming 10 hours per course
+  const totalWatchSeconds = progressRows.reduce(
+    (sum: number, row: DashboardProgressRow) => sum + sumVideoProgressSeconds(row.videoProgress),
+    0
+  );
+  const estimatedHours =
+    totalWatchSeconds > 0 ? Math.round((totalWatchSeconds / 3600) * 10) / 10 : 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          Welcome back, {student.name}!
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8 rounded-2xl border border-border/70 bg-card/80 p-6 shadow-sm ring-1 ring-black/[0.03] backdrop-blur-sm dark:bg-card/50 dark:ring-white/[0.04] sm:p-8">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Welcome back, {student.name}
         </h1>
-        <p className="text-muted-foreground">Continue your learning journey</p>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+          Pick up where you left off—your enrolled courses and activity are organized below.
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card>
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5 lg:gap-5">
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Enrolled Courses
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Enrolled courses
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <BookOpen className="mr-2 h-4 w-4 text-blue-600" />
-              <span className="text-2xl font-bold">{totalCourses}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{totalCourses}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {totalCourses > 0 ? "Keep learning!" : "Start your first course"}
@@ -172,16 +212,18 @@ export default async function StudentDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Completed Courses
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Completed courses
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Award className="mr-2 h-4 w-4 text-green-600" />
-              <span className="text-2xl font-bold">{completedCourses}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                <Award className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{completedCourses}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {totalCourses > 0
@@ -195,16 +237,18 @@ export default async function StudentDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Reviews Written
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Reviews written
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Star className="mr-2 h-4 w-4 text-yellow-600" />
-              <span className="text-2xl font-bold">{totalReviews}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300">
+                <Star className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{totalReviews}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Avg rating: {averageRating > 0 ? averageRating.toFixed(1) : "N/A"}
@@ -212,33 +256,37 @@ export default async function StudentDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Learning Hours
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Learning hours
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Clock className="mr-2 h-4 w-4 text-purple-600" />
-              <span className="text-2xl font-bold">{estimatedHours}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                <Clock className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{estimatedHours}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Estimated total hours
+              {estimatedHours > 0 ? "From your video watch time" : "Watch lessons to build this stat"}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Refund Requests
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Refund requests
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
-              <span className="text-2xl font-bold">{refundRequests.length}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/10 text-orange-800 dark:text-orange-300">
+                <RefreshCw className="h-4 w-4" />
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{refundRequests.length}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {pendingRefunds} pending • {acceptedRefunds} approved
@@ -247,14 +295,13 @@ export default async function StudentDashboard() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid md:grid-cols-4 gap-4 mb-8">
-        <Link href="/courses/all">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+      <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Link href="/courses">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <BookOpen className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">Browse Courses</h3>
-              <p className="text-sm text-muted-foreground">
+              <BookOpen className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Browse courses</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Discover new learning opportunities
               </p>
             </CardContent>
@@ -262,43 +309,59 @@ export default async function StudentDashboard() {
         </Link>
 
         <Link href="/student/live-classes">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <Video className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">Live Classes</h3>
-              <p className="text-sm text-muted-foreground">
+              <Video className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Live classes</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Join live streaming sessions
               </p>
             </CardContent>
           </Card>
         </Link>
 
-        <Link href="/student/profile">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <Link href="/student/message">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
             <CardContent className="p-6 text-center">
-              <User className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">My Profile</h3>
-              <p className="text-sm text-muted-foreground">
+              <MessageCircle className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Messages</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Chat with instructors
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/student/profile">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+            <CardContent className="p-6 text-center">
+              <User className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">Profile</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Manage your account settings
               </p>
             </CardContent>
           </Card>
         </Link>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6 text-center">
-            <TrendingUp className="h-8 w-8 mx-auto mb-2 text-primary" />
-            <h3 className="font-medium">Progress Tracking</h3>
-            <p className="text-sm text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
+        <Link href="/student/dashboard#my-learning" className="block h-full">
+          <Card className="h-full cursor-pointer border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+            <CardContent className="p-6 text-center">
+              <TrendingUp className="mx-auto mb-3 h-8 w-8 text-primary" />
+              <h3 className="font-semibold">My learning</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                View progress across your enrolled courses
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Refund Requests Section */}
       {refundRequests.length > 0 && (
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Refund Requests</h2>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Refund requests</h2>
             {pendingRefunds > 0 && (
               <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                 {pendingRefunds} Pending Review
@@ -381,7 +444,7 @@ export default async function StudentDashboard() {
                     {request.reason && (
                       <div>
                         <h4 className="font-medium mb-1 text-sm">Reason:</h4>
-                        <p className="text-sm text-muted-foreground bg-gray-50 p-2 rounded">
+                        <p className="rounded-md bg-muted/80 p-2 text-sm text-muted-foreground">
                           {request.reason}
                         </p>
                       </div>
@@ -432,19 +495,30 @@ export default async function StudentDashboard() {
       )}
 
       {/* My Courses Section */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">My Courses</h2>
+      <div id="my-learning" className="mb-8 scroll-mt-28">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">My courses</h2>
           <Link href="/courses">
-            <Button variant="outline">Browse More Courses</Button>
+            <Button variant="outline" className="font-semibold">
+              Browse more courses
+            </Button>
           </Link>
         </div>
 
         {enrolledCourses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {enrolledCourses.map((course: EnrolledCourseType) => {
-              // Calculate progress (placeholder - would need actual progress tracking)
-              const progress = Math.floor(Math.random() * 100);
+              const row = progressByCourse.get(String(course._id));
+              const progressPercent = Math.min(
+                100,
+                Math.round(Number(row?.percentageCompleted ?? 0) * 100) / 100
+              );
+              const lastAccessed = row?.lastAccessedVideo
+                ? String(row.lastAccessedVideo)
+                : null;
+              const continueHref = lastAccessed
+                ? `/courses/${course._id}/learn/${lastAccessed}`
+                : `/courses/${course._id}/learn`;
 
               // Check if there's a refund request for this course
               const courseRefundRequest = refundRequests.find(
@@ -454,22 +528,17 @@ export default async function StudentDashboard() {
               return (
                 <Card
                   key={course._id}
-                  className="overflow-hidden hover:shadow-md transition-shadow"
+                  className="overflow-hidden border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
                 >
                   <div className="aspect-video relative bg-muted">
                     <Image
-                      src={
-                        course.imageUrl ||
-                        `/placeholder.svg?height=200&width=400&text=${
-                          encodeURIComponent(course.name) || "/placeholder.svg"
-                        }`
-                      }
+                      src={course.imageUrl || "/course-placeholder.svg"}
                       alt={course.name}
                       fill
                       className="object-cover"
                     />
                     <div className="absolute top-2 right-2 bg-background/90 px-2 py-1 rounded text-xs font-medium">
-                      {progress}% Complete
+                      {progressPercent}% Complete
                     </div>
                     {courseRefundRequest && (
                       <div className="absolute top-2 left-2">
@@ -506,16 +575,16 @@ export default async function StudentDashboard() {
                     <div className="mb-4">
                       <div className="flex justify-between mb-2">
                         <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm font-medium">{progress}%</span>
+                        <span className="text-sm font-medium">{progressPercent}%</span>
                       </div>
-                      <Progress value={progress} className="h-2" />
+                      <Progress value={progressPercent} className="h-2" />
                     </div>
 
                     <div className="flex gap-2">
-                      <Link href={`/courses/${course._id}`} className="flex-1">
+                      <Link href={continueHref} className="flex-1">
                         <Button className="w-full">
                           <PlayCircle className="h-4 w-4 mr-2" />
-                          {progress > 0 ? "Continue" : "Start"}
+                          {progressPercent > 0 ? "Continue" : "Start"}
                         </Button>
                       </Link>
                       {!courseRefundRequest && course.price && course.price > 0 && (
@@ -552,7 +621,7 @@ export default async function StudentDashboard() {
       {/* Recent Reviews */}
       {reviews.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold mb-6">Recent Reviews</h2>
+          <h2 className="mb-6 text-xl font-bold tracking-tight sm:text-2xl">Recent reviews</h2>
           <div className="grid md:grid-cols-2 gap-4">
             {reviews.slice(0, 4).map((review: ReviewType) => (
               <Card key={review._id}>

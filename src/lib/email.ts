@@ -20,9 +20,9 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
     })
 
     const { error } = await resend.emails.send({
-      from: "EduLearn <noreply@edulearn.com>",
+      from: "HUDC e-learning <noreply@hudc-elearning.com>",
       to: email,
-      subject: "🔑 Reset Your EduLearn Password",
+      subject: "🔑 Reset Your HUDC e-learning Password",
       html: htmlContent,
     })
 
@@ -53,9 +53,9 @@ export async function sendPasswordResetSuccessEmail(email: string, role: string,
     })
 
     const { error } = await resend.emails.send({
-      from: "EduLearn",
+      from: "HUDC e-learning <noreply@hudc-elearning.com>",
       to: email,
-      subject: "✅ Password Reset Successful - EduLearn",
+      subject: "✅ Password Reset Successful - HUDC e-learning",
       html: htmlContent,
     })
 

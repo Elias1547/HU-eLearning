@@ -1,9 +1,28 @@
 import { Notification } from "@/models/notification"
-import { pusherServer } from "@/lib/pusher"
+import { emitToUser } from "@/lib/socket-server"
+import { Student } from "@/models/student"
+
+type StudentRecipient = {
+  _id: { toString: () => string }
+}
+
+type StudentRecipientQuery = {
+  select(fields: string): {
+    lean(): Promise<StudentRecipient[]>
+  }
+}
+
+const StudentNotificationModel = Student as unknown as {
+  find(filter: unknown): StudentRecipientQuery
+}
 
 export type NotificationType =
   | "live_session_created"
   | "quiz_published"
+  | "assignment_created"
+  | "live_class_scheduled"
+  | "video_uploaded"
+  | "material_uploaded"
   | "quiz_graded"
   | "assignment_graded"
   | "payment_confirmation"
@@ -33,8 +52,9 @@ export async function notifyUser(params: {
     isRead: false,
   })
 
-  await pusherServer.trigger(`user-${params.userId}`, "notification", doc.toJSON())
-  return doc.toJSON()
+  const notification = doc.toJSON()
+  emitToUser(params.userId, "notification", notification)
+  return notification
 }
 
 export async function notifyMany(
@@ -42,5 +62,23 @@ export async function notifyMany(
   base: Omit<Parameters<typeof notifyUser>[0], "userId" | "userRole">
 ) {
   return Promise.all(users.map((u) => notifyUser({ ...base, userId: u.userId, userRole: u.userRole })))
+}
+
+export async function notifyCourseStudents(
+  courseId: string,
+  base: Omit<Parameters<typeof notifyUser>[0], "userId" | "userRole" | "courseId">
+) {
+  const students = await StudentNotificationModel.find({ purchasedCourses: courseId }).select("_id").lean()
+
+  return notifyMany(
+    students.map((student) => ({
+      userId: student._id.toString(),
+      userRole: "student" as const,
+    })),
+    {
+      ...base,
+      courseId,
+    }
+  )
 }
 

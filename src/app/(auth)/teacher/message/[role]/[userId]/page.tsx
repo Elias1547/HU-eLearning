@@ -1,29 +1,30 @@
-"use client"
-
-import { useSession } from "next-auth/react"
+import { getServerSession } from "next-auth"
 import Chat from "@/components/Chat"
+import { authOptions } from "@/lib/auth"
 
 interface ChatPageProps {
-  params: {
+  params: Promise<{
     role: "teacher" | "student"
     userId: string
-  }
+  }>
 }
 
-export default function ChatPage({ params }: ChatPageProps) {
-  const { data: session, status } = useSession()
+export default async function TeacherChatPage({ params }: ChatPageProps) {
+  const { role, userId } = await params
+  const session = await getServerSession(authOptions)
 
-  if (status === "loading") return <p>Loading session...</p>
-  if (!session?.user) return <p>Please login to chat</p>
+  if (!session?.user) return <div className="p-6">Please login to chat</div>
 
   return (
-    <div className="h-[600px] p-4 border rounded">
-      <Chat
-        userId={session.user.id}
-        userRole={session.user.role as "teacher" | "student"}
-        receiverId={params.userId}
-        receiverRole={params.role}
-      />
+    <div className="px-4 pb-8 pt-6 md:px-6">
+      <div className="h-[600px] rounded border p-4">
+        <Chat
+          userId={session.user.id}
+          userRole={session.user.role as "teacher" | "student"}
+          receiverId={userId}
+          receiverRole={role}
+        />
+      </div>
     </div>
   )
 }

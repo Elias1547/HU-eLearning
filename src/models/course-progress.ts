@@ -1,6 +1,20 @@
 import mongoose from "mongoose"
 import { z } from "zod"
 
+const quizProgressEntrySchema = new mongoose.Schema(
+  {
+    quiz: { type: mongoose.Schema.Types.ObjectId, ref: "Quiz", required: true },
+    bestScorePercent: { type: Number, default: 0 },
+    latestScorePercent: { type: Number, default: 0 },
+    attemptCount: { type: Number, default: 0 },
+    passed: { type: Boolean, default: false },
+    /** True once the student has a recorded submission for this quiz */
+    completed: { type: Boolean, default: false },
+    lastSubmittedAt: { type: Date },
+  },
+  { _id: false }
+)
+
 const courseProgressSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
@@ -8,11 +22,15 @@ const courseProgressSchema = new mongoose.Schema({
   lastAccessedVideo: { type: mongoose.Schema.Types.ObjectId, ref: "Video" },
   submittedAssignments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Assignment" }],
   passedQuizzes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Quiz" }],
+  /** Per-quiz rollup: updated on each submission */
+  quizProgress: { type: [quizProgressEntrySchema], default: [] },
   videoProgress: {
     type: Map,
     of: Number, // seconds watched per video
     default: {},
   },
+  /** Per-videoId string key: { percentWatched, watchDurationSeconds, lastWatchedAt, completed } */
+  videoWatchDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
   breakdown: {
     lessons: {
       completed: { type: Number, default: 0 },

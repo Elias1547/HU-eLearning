@@ -10,13 +10,13 @@ export default function NotFound() {
   const router = useRouter();
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
+    <div className="flex min-h-[calc(100vh-3.5rem)] w-full items-center justify-center bg-muted/30 px-4 py-16 text-foreground">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
       >
-        <Card className="w-[400px] rounded-2xl border border-border bg-card shadow-lg">
+        <Card className="w-full max-w-md rounded-2xl border border-border/70 bg-card/95 shadow-xl ring-1 ring-black/[0.04] backdrop-blur-sm dark:ring-white/[0.06]">
           <CardContent className="flex flex-col items-center justify-center p-8 space-y-6">
             <motion.div
               initial={{ y: -20, opacity: 0 }}
@@ -51,10 +51,10 @@ export default function NotFound() {
               transition={{ delay: 0.5 }}
             >
               <Button
-                onClick={() => router.push("/dashboard")}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => router.push("/")}
+                className="w-full font-semibold"
               >
-                Back to Dashboard
+                Back to home
               </Button>
             </motion.div>
           </CardContent>

@@ -8,6 +8,7 @@ import { Student } from "@/models/student"
 import { CourseProgress } from "@/models/course-progress"
 import { recalculateAndSaveCourseProgress } from "@/lib/course-progress"
 import { ensureCertificateIssued } from "@/lib/certificate-service"
+import { upsertCourseQuizProgress } from "@/lib/quiz-progress"
 
 function toIdString(id: unknown) {
   if (typeof id === "string") return id
@@ -115,6 +116,7 @@ export async function POST(req: Request, { params }: { params: { quizId: string 
 
     const status = needsManual ? "pending_manual_grading" : "graded"
 
+    const submittedAt = new Date()
     const attempt = await QuizAttempt.create({
       quiz: params.quizId,
       course: quiz.course,
@@ -127,10 +129,19 @@ export async function POST(req: Request, { params }: { params: { quizId: string 
       scorePercent,
       passed,
       startedAt: startedAt ? new Date(startedAt) : undefined,
-      submittedAt: new Date(),
+      submittedAt,
       durationSeconds: typeof durationSeconds === "number" ? durationSeconds : undefined,
       gradedAt: status === "graded" ? new Date() : undefined,
     })
+
+    await upsertCourseQuizProgress(
+      session.user.id,
+      toIdString(quiz.course),
+      params.quizId,
+      scorePercent,
+      passed,
+      submittedAt
+    )
 
     // Progress update (only when objectively graded and passed)
     if (passed) {

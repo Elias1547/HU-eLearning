@@ -4,8 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { dbConnect } from "@/lib/dbConnect"
 import { Course } from "@/models/course"
 import { Quiz, quizValidationSchema } from "@/models/quiz"
-import { Student } from "@/models/student"
-import { notifyMany } from "@/lib/notifications"
+import { notifyCourseStudents } from "@/lib/notifications"
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,21 +48,12 @@ export async function POST(req: NextRequest) {
 
     // Notify students if published
     if (quiz.published) {
-      const students = await Student.find({ purchasedCourses: courseId }).select("_id").lean()
-      await notifyMany(
-        students.map((s: { _id: { toString: () => string } }) => ({
-          userId: s._id.toString(),
-          userRole: "student" as const,
-        })),
-        {
-          type: "quiz_published",
-          title: `New quiz published: ${quiz.title}`,
-          body: "A new quiz is now available in your course.",
-          link: `/courses/${courseId}`,
-          courseId,
-          data: { quizId: quiz._id.toString() },
-        }
-      )
+      await notifyCourseStudents(courseId, {
+        type: "quiz_published",
+        title: `A new quiz is ready in ${course.name}`,
+        link: `/courses/${courseId}`,
+        data: { quizId: quiz._id.toString() },
+      }).catch((error) => console.error("Quiz notification error:", error))
     }
 
     return NextResponse.json({ quiz: quiz.toJSON() }, { status: 201 })

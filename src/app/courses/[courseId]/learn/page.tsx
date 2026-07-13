@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter,useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -91,10 +91,11 @@ interface CourseLearnPageProps {
   }
 }
 
-export default function CourseLearnPage({ params }: CourseLearnPageProps) {
+export default function CourseLearnPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { courseId } = params
+    const params = useParams()
+  const courseId = params.courseId as string
 
   const [course, setCourse] = useState<Course | null>(null)
   const [progress, setProgress] = useState<CourseProgress | null>(null)
@@ -215,7 +216,7 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold">{course.name}</h1>
-                <p className="text-muted-foreground">by {course.instructor.name}</p>
+                <p className="text-muted-foreground">by {course.instructor?.name}</p>
               </div>
             </div>
             
@@ -592,14 +593,14 @@ export default function CourseLearnPage({ params }: CourseLearnPageProps) {
               <CardContent>
                 <div className="flex items-center space-x-3 mb-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {course.instructor.name.charAt(0)}
+                    {course.instructor?.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-medium">{course.instructor.name}</h3>
+                    <h3 className="font-medium">{course.instructor?.name}</h3>
                     <p className="text-sm text-muted-foreground">Course Instructor</p>
                   </div>
                 </div>
-                {course.instructor.bio && (
+                {course.instructor?.bio && (
                   <p className="text-sm text-muted-foreground">
                     {course.instructor.bio}
                   </p>

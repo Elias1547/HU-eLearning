@@ -15,7 +15,7 @@ import {
 import { Home, User, BookOpen, Settings, Users, BarChart3 } from "lucide-react"
 
 const getIconForPath = (path: string) => {
-  if (path === "profile") return <User className="h-4 w-4" />
+  if (path === "profile") return <User className="h-4 w-4 " />
   if (path === "courses") return <BookOpen className="h-4 w-4" />
   if (path === "dashboard") return <BarChart3 className="h-4 w-4" />
   if (path === "settings") return <Settings className="h-4 w-4" />
@@ -58,8 +58,8 @@ export function Breadcrumbs() {
   })
 
   return (
-    <div className="border-b bg-muted/30 px-4 py-3">
-      <div className="container">
+    <div className="border-b border-border/50 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
+      <div className="mx-auto max-w-[1600px] px-0 sm:px-2 lg:px-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>

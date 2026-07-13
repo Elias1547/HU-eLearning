@@ -3,10 +3,12 @@ import { getServerSession } from "next-auth/next"
 import { v2 as cloudinary } from "cloudinary"
 import { dbConnect } from "@/lib/dbConnect"
 import { Video } from "@/models/video"
+import { Course } from "@/models/course"
 import { authOptions } from "@/lib/auth"
 import { 
   videoProcessingQueue
 } from "@/lib/video-streaming"
+import { notifyCourseStudents } from "@/lib/notifications"
 import crypto from "crypto"
 import path from "path"
 
@@ -29,17 +31,6 @@ interface CloudinaryUploadResult {
   bit_rate?: number
   frame_rate?: number
   [key: string]: string | number | undefined
-}
-
-interface VideoUploadRequest {
-  file: File
-  title: string
-  courseId: string
-  description?: string
-  position?: number
-  enableProcessing?: boolean
-  generateThumbnails?: boolean
-  generatePreview?: boolean
 }
 
 interface VideoDocument {
@@ -79,43 +70,6 @@ interface JobStatus {
   }
 }
 
-interface UploadResponse {
-  message: string
-  video: {
-    _id: string
-    title: string
-    url: string
-    duration?: string
-    processing: boolean
-    processingStatus?: string
-    processingJobId?: string
-  }
-  upload: {
-    public_id: string
-    secure_url: string
-    format: string
-    duration?: number
-    width?: number
-    height?: number
-    bytes?: number
-  }
-}
-
-interface StatusResponse {
-  status: string
-  progress: number
-  video: {
-    _id: string
-    title: string
-    url: string
-    hlsUrl?: string
-    thumbnails?: string[]
-    preview?: string
-    isProcessed: boolean
-    availableQualities?: string[]
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -149,6 +103,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ 
         message: "Title and course ID are required" 
       }, { status: 400 })
+    }
+
+    const course = await Course.findById(courseId).select("name teacher").lean()
+    if (!course) {
+      return NextResponse.json({ message: "Course not found" }, { status: 404 })
+    }
+
+    if (session.user.role === "teacher" && course.teacher?.toString() !== session.user.id) {
+      return NextResponse.json({ message: "You can only upload videos to your own courses" }, { status: 403 })
     }
 
     // Convert file to buffer for Cloudinary upload
@@ -216,6 +179,13 @@ export async function POST(req: Request) {
 
       const savedVideo = await newVideo.save()
 
+      await notifyCourseStudents(courseId, {
+        type: "video_uploaded",
+        title: `New video uploaded in ${course.name}`,
+        link: `/courses/${courseId}/learn/${savedVideo._id.toString()}`,
+        data: { videoId: savedVideo._id.toString() },
+      }).catch((error) => console.error("Video notification error:", error))
+
       // Start background video processing if enabled
       if (enableProcessing) {
         // Generate unique processing job ID
@@ -241,7 +211,7 @@ export async function POST(req: Request) {
         )
 
         // Update video document with processing job info
-        await (Video as any).findByIdAndUpdate(savedVideo._id, {
+        await Video.findByIdAndUpdate(savedVideo._id, {
           processingJobId,
           processingStatus: 'queued'
         })
@@ -251,7 +221,7 @@ export async function POST(req: Request) {
           try {
             const jobStatus: JobStatus | null = videoProcessingQueue.getJobStatus(processingJobId)
             if (jobStatus && jobStatus.status === 'completed' && jobStatus.result) {
-              await (Video as any).findByIdAndUpdate(savedVideo._id, {
+              await Video.findByIdAndUpdate(savedVideo._id, {
                 isProcessed: true,
                 hlsUrl: jobStatus.result.hlsPlaylist,
                 thumbnails: jobStatus.result.thumbnails,
@@ -350,7 +320,7 @@ export async function GET(req: Request) {
       // Also get video info if available
       let videoInfo: Partial<VideoDocument> | null = null
       if (videoId) {
-        const video = await (Video as any).findById(videoId).lean() as VideoDocument | null
+        const video = await Video.findById(videoId).lean() as VideoDocument | null
         if (video) {
           videoInfo = {
             title: video.title,
@@ -381,7 +351,7 @@ export async function GET(req: Request) {
     }
 
     // Fallback to video-based lookup
-    const video = await (Video as any).findById(videoId).lean() as VideoDocument | null
+    const video = await Video.findById(videoId).lean() as VideoDocument | null
     
     if (!video) {
       return NextResponse.json({ 

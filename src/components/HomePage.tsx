@@ -86,200 +86,268 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative py-20 bg-gradient-to-br from-background via-background/95 to-primary/5 dark:from-background dark:via-background/90 dark:to-primary/10">
-          <div className="absolute inset-0 bg-grid-pattern opacity-[0.02] dark:opacity-[0.03]"></div>
-          <div className="relative container mx-auto px-4 flex flex-col items-center justify-center gap-8 min-h-[70vh]">
-            <ScaleIn
-              delay={0.2}
-              className="flex-1 flex justify-center items-center"
-            >
-              <div className="relative group">
-                <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full blur-lg group-hover:blur-xl transition-all duration-300"></div>
-                <Image
-                  src="/edulearn-logo.png"
-                  alt="EduLearn Platform"
-                  width={80}
-                  height={60}
-                  className="relative rounded-lg shadow-xl drop-shadow-2xl transition-transform group-hover:scale-105"
-                  priority
-                />
-              </div>
-            </ScaleIn>
-            <div className="flex-1 space-y-6 text-center flex flex-col justify-center items-center">
-              <TextReveal
-                text="Learn Without Limits"
-                element="h1"
-                className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text"
-              />
-              <FadeIn delay={0.3}>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                  Transform your career with thousands of expertly crafted courses. 
-                  Learn at your own pace with interactive content, live sessions, and 
-                  personalized learning paths tailored to your goals.
-                </p>
+        <section className="relative overflow-hidden border-b border-border/60 bg-lms-mesh">
+  
+          <Image
+            src="/image-10.jpg"
+            alt="Modern LMS dashboard background"
+            fill
+            priority
+            className="object-cover object-center"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background/90 via-background/62 to-background/20" />
+          <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.16]" />
+          <div className="relative mx-auto flex min-h-[72vh] max-w-7xl flex-col items-center gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-16 lg:px-8 lg:py-20">
+            <div className="flex w-full max-w-xl flex-1 flex-col items-center gap-8 text-center lg:items-start lg:text-left">
+              <FadeIn delay={0.1}>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                  
+                </span>
               </FadeIn>
-              <FadeIn delay={0.5}>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/courses">
-                    <Button size="lg" className="gap-2 px-8 py-3 text-base font-medium hover:shadow-lg transition-all duration-200">
-                      Explore Courses <ArrowRight className="h-4 w-4" />
+              <TextReveal
+                text="Learn with clarity. Teach with confidence."
+                element="h1"
+                className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-[2.75rem] lg:leading-[1.1]"
+              />
+             <FadeIn delay={0.25}>
+              <p className="max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground dark:text-slate-200">
+                A calm, focused workspace for online education—structured like the
+                platforms you already trust, tuned for deep work and steady progress.
+              </p>
+             </FadeIn>
+              <FadeIn delay={0.4}>
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
+                  <Link href="/courses" className="sm:w-auto sm:flex-initial">
+                    <Button
+                      size="lg"
+                      className="h-12 w-full gap-2 px-8 text-base font-semibold shadow-md sm:w-auto"
+                    >
+                      Browse courses
+                      <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/role">
-                    <Button size="lg" variant="outline" className="px-8 py-3 text-base font-medium hover:bg-primary/5 hover:border-primary/30">
-                      Start Free Trial
+                  <Link href="/role" className="sm:w-auto sm:flex-initial">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="h-12 w-full border-border/80 bg-background/80 px-8 text-base font-semibold backdrop-blur-sm sm:w-auto"
+                    >
+                      Sign in or register
                     </Button>
                   </Link>
                 </div>
               </FadeIn>
+              <FadeIn delay={0.55}>
+                <dl className="grid w-full max-w-md grid-cols-3 gap-4 border-t border-border/60 pt-6 text-center sm:max-w-lg lg:text-left">
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Courses
+                    </dt>
+                    <dd className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      Live
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Pace
+                    </dt>
+                    <dd className="mt-1 text-lg font-semibold text-foreground">Self-paced</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Access
+                    </dt>
+                    <dd className="mt-1 text-lg font-semibold text-foreground">Anywhere</dd>
+                  </div>
+                </dl>
+              </FadeIn>
             </div>
+
+            {/* <ScaleIn delay={0.2} className="flex w-full max-w-md flex-1 justify-center lg:max-w-lg lg:justify-end">
+              <div className="relative w-full max-w-sm">
+                <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-br from-primary/15 via-transparent to-primary/5 blur-2xl" />
+                <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 p-6 shadow-xl ring-1 ring-black/[0.04] backdrop-blur-md dark:ring-white/[0.06]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Spotlight
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">HU eLearning</p>
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-6 overflow-hidden rounded-xl border border-border/60 bg-muted/40">
+                    <Image
+                      src="/edulearn-logo.png"
+                      alt="HU eLearning"
+                      width={320}
+                      height={200}
+                      className="h-auto w-full object-cover"
+                      priority
+                    />
+                  </div>
+                  <ul className="mt-5 space-y-2.5 text-sm text-muted-foreground">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                      Structured lessons with clear outcomes
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                      Instructor tools that stay out of your way
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                      Responsive UI for phone, tablet, and desktop
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </ScaleIn> */}
           </div>
+           <div className="absolute inset-x-0 bottom-0 h-50 bg-gradient-to-t from-background via-background/30 to-transparent" />
         </section>
-        {/* Featured Categories */}
-        <section className="py-20 bg-muted/30 dark:bg-muted/10">
-          <div className="container mx-auto px-4">
+        <section className="border-b border-border/60 bg-muted/25 py-16 dark:bg-muted/10 sm:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <FadeIn>
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  Popular Categories
+              <div className="mx-auto mb-12 max-w-2xl text-center">
+                <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+                  Explore by focus area
                 </h2>
-                <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Discover courses across diverse fields and master skills that matter in today's world
+                <p className="mt-3 text-pretty text-lg text-muted-foreground">
+                  Pick a path that matches your goals—each category is designed to feel
+                  approachable from day one.
                 </p>
               </div>
             </FadeIn>
-            <StaggerChildren className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
-                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
-                  <BookOpen className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Web Development</h3>
-                <p className="text-sm text-muted-foreground">Build modern web applications</p>
-              </div>
-              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
-                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
-                  <Users className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Business</h3>
-                <p className="text-sm text-muted-foreground">Master business strategies</p>
-              </div>
-              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
-                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
-                  <Award className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Design</h3>
-                <p className="text-sm text-muted-foreground">Create stunning visuals</p>
-              </div>
-              <div className="group flex flex-col items-center text-center p-8 rounded-xl border bg-card hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
-                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
-                  <Globe className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Marketing</h3>
-                <p className="text-sm text-muted-foreground">Grow your audience</p>
-              </div>
+            <StaggerChildren className="mx-auto grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
+              {[
+                { title: "Web development", desc: "Ship modern apps", icon: BookOpen },
+                { title: "Business", desc: "Strategy & execution", icon: Users },
+                { title: "Design", desc: "Craft clear visuals", icon: Award },
+                { title: "Marketing", desc: "Grow with intention", icon: Globe },
+              ].map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <div
+                    key={cat.title}
+                    className="group flex flex-col rounded-2xl border border-border/70 bg-card/90 p-6 text-center shadow-sm ring-1 ring-black/[0.03] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:ring-white/[0.04]"
+                  >
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="font-semibold text-foreground">{cat.title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{cat.desc}</p>
+                  </div>
+                );
+              })}
             </StaggerChildren>
           </div>
         </section>
-        {/* Why Choose Us */}
-        <section className="py-20">
-          <div className="container mx-auto px-4">
+        <section className="py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <FadeIn>
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  Why Choose EduLearn?
+              <div className="mx-auto mb-12 max-w-2xl text-center">
+                <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+                  Built for serious learners
                 </h2>
-                <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  We provide everything you need to succeed in your learning journey
+                <p className="mt-3 text-pretty text-lg text-muted-foreground">
+                  Less noise, more signal—so you can stay oriented and make steady progress.
                 </p>
               </div>
             </FadeIn>
-            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3 md:gap-8">
               <SlideIn direction="up" delay={0.1}>
-                <div className="group flex flex-col items-center text-center p-8 rounded-xl bg-card border hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                  <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/20 mb-6">
-                    <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-card p-8 shadow-sm ring-1 ring-black/[0.03] transition-shadow hover:shadow-md dark:ring-white/[0.04]">
+                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle className="h-6 w-6" />
                   </div>
-                  <h3 className="text-xl font-bold mb-4">Quality Content</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Expertly crafted courses designed to help you master new
-                    skills quickly and effectively with hands-on projects.
+                  <h3 className="text-lg font-semibold text-foreground">Quality-first lessons</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Clear structure, practical exercises, and outcomes you can verify—not
+                    endless scrolling.
                   </p>
                 </div>
               </SlideIn>
               <SlideIn direction="up" delay={0.2}>
-                <div className="group flex flex-col items-center text-center p-8 rounded-xl bg-card border hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                  <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/20 mb-6">
-                    <Users className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-card p-8 shadow-sm ring-1 ring-black/[0.03] transition-shadow hover:shadow-md dark:ring-white/[0.04]">
+                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                    <Users className="h-6 w-6" />
                   </div>
-                  <h3 className="text-xl font-bold mb-4">Expert Instructors</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Learn from industry professionals with years of experience
-                    and proven track records in their respective fields.
+                  <h3 className="text-lg font-semibold text-foreground">Instructor-friendly</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Tools that help teachers publish, iterate, and support learners—without a
+                    steep learning curve.
                   </p>
                 </div>
               </SlideIn>
               <SlideIn direction="up" delay={0.3}>
-                <div className="group flex flex-col items-center text-center p-8 rounded-xl bg-card border hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                  <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/20 mb-6">
-                    <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-card p-8 shadow-sm ring-1 ring-black/[0.03] transition-shadow hover:shadow-md dark:ring-white/[0.04]">
+                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                    <Clock className="h-6 w-6" />
                   </div>
-                  <h3 className="text-xl font-bold mb-4">Flexible Learning</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Study at your own pace, on your own schedule, from anywhere
-                    in the world with lifetime access to courses.
+                  <h3 className="text-lg font-semibold text-foreground">Flexible pacing</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Learn on your schedule with layouts that stay readable on every screen size.
                   </p>
                 </div>
               </SlideIn>
             </div>
           </div>
         </section>
-        {/* Featured Courses */}
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+        <section className="border-t border-border/60 bg-muted/20 py-16 dark:bg-muted/10 sm:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <FadeIn>
-                <h2 className="text-3xl font-bold">Featured Courses</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-foreground">
+                  Featured courses
+                </h2>
+                <p className="mt-2 max-w-xl text-muted-foreground">
+                  Hand-picked highlights from the catalog—updated as new content goes live.
+                </p>
               </FadeIn>
-              <FadeIn delay={0.2}>
+              <FadeIn delay={0.15}>
                 <Link href="/courses">
-                  <Button variant="outline" className="gap-2 w-full md:w-auto">
-                    View All <ArrowRight className="h-4 w-4" />
+                  <Button variant="outline" className="gap-2 font-semibold">
+                    View courses
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </FadeIn>
             </div>
 
             {loading ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="border rounded-lg overflow-hidden bg-card animate-pulse"
+                    className="overflow-hidden rounded-2xl border border-border/70 bg-card animate-pulse shadow-sm"
                   >
                     <div className="aspect-video bg-muted" />
-                    <div className="p-4 space-y-3">
-                      <div className="h-6 bg-muted rounded" />
-                      <div className="h-4 bg-muted rounded w-3/4" />
-                      <div className="h-4 bg-muted rounded w-1/2" />
-                      <div className="flex justify-between items-center pt-2">
-                        <div className="h-5 bg-muted rounded w-1/4" />
-                        <div className="h-8 bg-muted rounded w-1/4" />
+                    <div className="space-y-3 p-5">
+                      <div className="h-5 rounded-md bg-muted" />
+                      <div className="h-4 rounded-md bg-muted w-4/5" />
+                      <div className="h-4 rounded-md bg-muted w-3/5" />
+                      <div className="flex items-center justify-between pt-3">
+                        <div className="h-5 w-20 rounded-md bg-muted" />
+                        <div className="h-9 w-28 rounded-lg bg-muted" />
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : featuredCourses.length > 0 ? (
-              <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              <StaggerChildren className="mx-auto grid max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {featuredCourses.map((course: CourseType) => (
-                  <div
+                  <article
                     key={course._id}
-                    className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow flex flex-col"
+                    className="group flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm ring-1 ring-black/[0.03] transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:ring-white/[0.04]"
                   >
-                    <div className="aspect-video relative bg-muted">
+                    <div className="relative aspect-video overflow-hidden bg-muted">
                       <Image
                         src={
                           course.imageUrl ||
@@ -288,103 +356,106 @@ export default function Home() {
                         }
                         alt={course.name}
                         fill
-                        className="object-cover"
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                         sizes="(max-width: 768px) 100vw, 33vw"
                         priority
                       />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-80" />
                     </div>
-                    <div className="p-4 flex flex-col flex-1">
-                      <h3 className="font-bold text-lg mb-2">{course.name}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">
+                    <div className="flex flex-1 flex-col p-5">
+                      <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-foreground">
+                        {course.name}
+                      </h3>
+                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
                         {course.description.length > 100
-                          ? `${course.description.substring(0, 100)}...`
+                          ? `${course.description.substring(0, 100)}…`
                           : course.description}
                       </p>
-                      <p className="text-sm mb-2">
-                        <span className="font-medium">Instructor:</span>{" "}
-                        {course.teacher?.name || "Unknown"}
+                      <p className="mt-3 text-xs font-medium text-muted-foreground">
+                        Instructor ·{" "}
+                        <span className="text-foreground">{course.teacher?.name || "Unknown"}</span>
                       </p>
-                      <div className="flex justify-between items-center mt-auto pt-4 gap-2 flex-wrap">
-                        <span className="font-bold text-base">
+                      <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-border/60 pt-4">
+                        <div className="text-base font-semibold tabular-nums text-foreground">
                           {course.sale ? (
-                            <>
-                              <span>
-                                <SalePriceBlock
-                                  sale={course.sale}
-                                  price={course.price}
-                                />
-                              </span>
-                              <span>
-                                <SaleTimer
-                                  expiryTime={course.sale.expiryTime}
-                                />
-                              </span>
-                            </>
+                            <div className="space-y-1">
+                              <SalePriceBlock sale={course.sale} price={course.price} />
+                              <SaleTimer expiryTime={course.sale.expiryTime} />
+                            </div>
                           ) : course.price === 0 ? (
                             "Free"
                           ) : (
                             `₹${course.price}`
                           )}
-                        </span>
+                        </div>
                         <Link href={`/courses/${course._id}`}>
-                          <Button
-                            size="sm"
-                            className="w-full sm:w-auto mt-2 sm:mt-0"
-                          >
-                            View Course
+                          <Button size="sm" className="font-semibold">
+                            View course
                           </Button>
                         </Link>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 ))}
               </StaggerChildren>
             ) : (
-              <FadeIn className="text-center py-10 max-w-md mx-auto">
-                <h3 className="text-lg font-medium mb-2">
-                  No courses available yet
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Be the first to create a course or check back later
+              <FadeIn className="mx-auto max-w-md rounded-2xl border border-dashed border-border/70 bg-card/60 p-10 text-center">
+                <h3 className="text-lg font-semibold text-foreground">No published courses yet</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Check back soon—or publish the first course to kick things off.
                 </p>
-                <Link href="/teacher/courses/create">
-                  <Button>Create a Course</Button>
+                <Link href="/teacher/courses/create" className="mt-6 inline-block">
+                  <Button>Create a course</Button>
                 </Link>
               </FadeIn>
             )}
           </div>
         </section>
-        {/* Student Reviews */}
-        <section className="py-16 bg-muted">
-          <div className="container mx-auto px-4">
+        <section className="py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <FadeIn>
-              <h2 className="text-3xl font-bold text-center mb-12">
-                What Our Students Say
+              <h2 className="mb-10 text-center text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+                What learners say
               </h2>
             </FadeIn>
             <FeaturedReviews />
           </div>
         </section>
-        {/* CTA Section */}
-        <section className="py-20 bg-primary text-primary-foreground">
-          <div className="container mx-auto px-4 text-center">
+        <section className="border-t border-border/60 bg-primary py-16 text-primary-foreground sm:py-20">
+          <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
             <FadeIn>
-              <h2 className="text-3xl font-bold mb-4">
-                Ready to Start Learning?
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Ready when you are
               </h2>
             </FadeIn>
-            <FadeIn delay={0.2}>
-              <p className="text-lg mb-8 max-w-2xl mx-auto">
-                Join thousands of students who are already learning on our
-                platform. Start your journey today!
+            <FadeIn delay={0.15}>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-primary-foreground/85 sm:text-lg">
+                Create an account, pick a course, and pick up exactly where you left off—on any
+                device.
               </p>
             </FadeIn>
-            <ScaleIn delay={0.4}>
-              <Link href="/role">
-                <Button size="lg" variant="secondary" className="gap-2">
-                  Get Started <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+            <ScaleIn delay={0.3}>
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link href="/role">
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="h-12 gap-2 px-8 text-base font-semibold shadow-md"
+                  >
+                    Get started
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/courses">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-12 border-primary-foreground/35 bg-transparent px-8 text-base font-semibold text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  >
+                    Browse courses
+                  </Button>
+                </Link>
+              </div>
             </ScaleIn>
           </div>
         </section>

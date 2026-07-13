@@ -6,6 +6,7 @@ import { Video } from "@/models/video"
 import { Course } from "@/models/course"
 import { videoStreamingService } from "@/lib/video-streaming"
 import { z } from "zod"
+import { notifyCourseStudents } from "@/lib/notifications"
 
 interface VideoResponse {
   _id: string
@@ -179,6 +180,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
 
     await video.save()
+
+    await notifyCourseStudents(courseId, {
+      type: "video_uploaded",
+      title: `New video uploaded in ${course.name}`,
+      link: `/courses/${courseId}/learn/${video._id.toString()}`,
+      data: { videoId: video._id.toString() },
+    }).catch((error) => console.error("Video notification error:", error))
 
     return NextResponse.json(
       {

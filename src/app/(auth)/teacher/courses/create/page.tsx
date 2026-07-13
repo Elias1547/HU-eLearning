@@ -23,11 +23,11 @@ const formSchema = z.object({
   name: z.string().min(5, {
     message: "Course name must be at least 5 characters.",
   }),
-  description: z.string().min(100, {
-    message: "Description must be at least 100 characters.",
+  description: z.string().min(10, {
+    message: "Description must be at least 10 characters.",
   }),
-  syllabus: z.string().min(50, {
-    message: "Syllabus must be at least 50 characters.",
+  syllabus: z.string().min(5, {
+    message: "Syllabus must be at least 5 characters.",
   }),
   priceType: z.enum(["free", "paid"]),
   price: z.coerce.number().min(0).optional(),
@@ -268,7 +268,7 @@ export default function CreateCoursePage() {
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Minimum 100 characters. Explain what students will learn.</FormDescription>
+                    <FormDescription>Minimum 10 characters. Explain what students will learn.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -21,6 +21,7 @@ interface AdaptiveVideoPlayerProps {
   controls?: boolean
   onTimeUpdate?: (currentTime: number) => void
   onDurationChange?: (duration: number) => void
+  onEnded?: () => void
 }
 
 export default function AdaptiveVideoPlayer({
@@ -31,7 +32,8 @@ export default function AdaptiveVideoPlayer({
   autoPlay = false,
   controls = true,
   onTimeUpdate,
-  onDurationChange
+  onDurationChange,
+  onEnded,
 }: AdaptiveVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -121,11 +123,16 @@ export default function AdaptiveVideoPlayer({
       setIsMuted(video.muted)
     }
 
+    const handleEnded = () => {
+      onEnded?.()
+    }
+
     video.addEventListener('timeupdate', updateTime)
     video.addEventListener('durationchange', updateDuration)
     video.addEventListener('play', handlePlay)
     video.addEventListener('pause', handlePause)
     video.addEventListener('volumechange', handleVolumeChange)
+    video.addEventListener('ended', handleEnded)
 
     return () => {
       video.removeEventListener('timeupdate', updateTime)
@@ -133,8 +140,9 @@ export default function AdaptiveVideoPlayer({
       video.removeEventListener('play', handlePlay)
       video.removeEventListener('pause', handlePause)
       video.removeEventListener('volumechange', handleVolumeChange)
+      video.removeEventListener('ended', handleEnded)
     }
-  }, [onTimeUpdate, onDurationChange])
+  }, [onTimeUpdate, onDurationChange, onEnded])
 
   const togglePlay = () => {
     const video = videoRef.current
